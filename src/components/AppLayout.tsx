@@ -77,21 +77,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   
-  const getYaml = () => exportToYaml({
-    topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, edgeLinks, simulation,
+  const getYaml = (withTimestamp = false) => exportToYaml({
+    topologyName: withTimestamp ? `${topologyName}-${Date.now()}` : topologyName,
+    namespace, operation, nodes, edges, nodeTemplates, linkTemplates, edgeLinks, simulation,
   });
 
-  const handleDownload = () => downloadYaml(getYaml(), `${topologyName}.yaml`);
+  const handleDownload = () => downloadYaml(getYaml(true), `${topologyName}-${Date.now()}.yaml`);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(getYaml());
+    await navigator.clipboard.writeText(getYaml(true));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleCopyKubectl = async () => {
-    const yaml = getYaml();
-    await navigator.clipboard.writeText(`kubectl apply -f - <<'EOF'\n${yaml}\nEOF`);
+    await navigator.clipboard.writeText(`kubectl apply -f - <<'EOF'\n${getYaml(true)}\nEOF`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

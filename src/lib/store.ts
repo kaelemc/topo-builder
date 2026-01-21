@@ -148,7 +148,7 @@ function parseBaseTemplate(): Partial<TopologyState> {
   try {
     const parsed = yaml.load(baseTemplateYaml) as ParsedYaml;
     return {
-      topologyName: `${parsed.metadata?.name || 'my-topology'}-${Date.now()}`,
+      topologyName: parsed.metadata?.name || 'my-topology',
       namespace: parsed.metadata?.namespace || 'eda',
       operation: (parsed.spec?.operation as Operation) || 'replaceAll',
       nodeTemplates: (parsed.spec?.nodeTemplates || []) as NodeTemplate[],
@@ -168,7 +168,7 @@ const baseTemplate = parseBaseTemplate();
 
 // Default initial state
 const initialState: TopologyState = {
-  topologyName: baseTemplate.topologyName || `my-topology-${Date.now()}`,
+  topologyName: baseTemplate.topologyName || 'my-topology',
   namespace: baseTemplate.namespace || 'eda',
   operation: baseTemplate.operation || 'replaceAll',
   nodeTemplates: baseTemplate.nodeTemplates || [],
