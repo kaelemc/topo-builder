@@ -130,7 +130,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <AppBar position="static" elevation={1} sx={{ bgcolor: 'var(--color-primary)' }}>
           <Toolbar variant="dense">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
-              <img src="/eda.svg" alt="EDA" style={{ height: 28 }} />
+              <img src={`${import.meta.env.BASE_URL}eda.svg`} alt="EDA" style={{ height: 28 }} />
               <Typography variant="h6" sx={{ fontWeight: 200, color: 'white' }}>
                 {TITLE}
               </Typography>
