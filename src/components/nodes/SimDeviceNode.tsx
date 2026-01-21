@@ -1,0 +1,43 @@
+import { type NodeProps } from '@xyflow/react';
+import { Speed as SpeedIcon, ViewInAr as ContainerIcon } from '@mui/icons-material';
+import type { SimNode, SimNodeType } from '../../types/topology';
+import { useTopologyStore } from '../../lib/store';
+import BaseNode from './BaseNode';
+
+export interface SimDeviceNodeData {
+  [key: string]: unknown;
+  simNode: SimNode;
+}
+
+function SimDeviceNode({ data, selected }: NodeProps) {
+  const nodeData = data as SimDeviceNodeData;
+  const simNode = nodeData.simNode;
+
+  const simulation = useTopologyStore((state) => state.simulation);
+  const updateSimNode = useTopologyStore((state) => state.updateSimNode);
+  const triggerYamlRefresh = useTopologyStore((state) => state.triggerYamlRefresh);
+
+  const template = simulation.simNodeTemplates.find(t => t.name === simNode.template);
+  const nodeType: SimNodeType = simNode.type || template?.type || 'Linux';
+
+  const icon = template ? (
+    nodeType === 'TestMan' ? (
+      <SpeedIcon sx={{ fontSize: 28, color: '#888' }} />
+    ) : (
+      <ContainerIcon sx={{ fontSize: 28, color: '#888' }} />
+    )
+  ) : undefined;
+
+  return (
+    <BaseNode
+      selected={selected ?? false}
+      name={simNode.name}
+      icon={icon}
+      onNameChange={(newName) => updateSimNode(simNode.name, { name: newName })}
+      onNameBlur={triggerYamlRefresh}
+      className="border-dashed"
+    />
+  );
+}
+
+export default SimDeviceNode;

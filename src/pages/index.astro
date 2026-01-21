@@ -1,0 +1,9 @@
+---
+import Layout from '../layouts/Layout.astro';
+import TopologyEditor from '../components/TopologyEditor';
+import { TITLE } from '../lib/constants';
+---
+
+<Layout title={TITLE}>
+  <TopologyEditor client:only="react" />
+</Layout>

@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+:root {
+  --color-primary: #7d33f2;
+  --color-primary-light: #9a5ff5;
+  --color-primary-dark: #5c1fd4;
+  --color-link-stroke: #6872824C;
+  --color-link-stroke-selected: #6098FF;
+  --color-node-border: #6872824C;
+  --color-node-border-selected: #6098FF;
+  --color-node-bg: #F7F9FD;
+  --color-node-text: #2b2b2b;
+  --color-handle-bg: white;
+  --color-icon-bg: #707070;
+  --color-icon-fg: white;
+}
+
+.dark {
+  --color-node-bg: #000000;
+  --color-node-text: #ffffff;
+  --color-handle-bg: #1e1e1e;
+}
+
+.react-flow.dark {
+  --xy-background-color: #1a1a1a;
+}
+
+.react-flow {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.react-flow__edge-path.sim-edge {
+  stroke-dasharray: 4 4;
+}
