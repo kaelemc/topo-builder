@@ -24,13 +24,17 @@ export default function BaseNode({
   const [isEditing, setIsEditing] = useState(false);
   const [localName, setLocalName] = useState(name);
   const inputRef = useRef<HTMLInputElement>(null);
-  const isFirstRender = useRef(true);
+  const hasAutoEdited = useRef(false);
 
   useEffect(() => {
-    if (isFirstRender.current && selected) {
+    if (!hasAutoEdited.current && selected) {
+      hasAutoEdited.current = true;
       setIsEditing(true);
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 50); // 50ms debounce
     }
-    isFirstRender.current = false;
   }, [selected]);
 
   useEffect(() => {
@@ -40,7 +44,7 @@ export default function BaseNode({
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
-      requestAnimationFrame(() => inputRef.current?.select());
+      inputRef.current.select();
     }
   }, [isEditing]);
 

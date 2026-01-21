@@ -230,10 +230,11 @@ export const useTopologyStore = create<TopologyStore>()(
             template,
           },
         };
-        // Deselect all other nodes and add the new one selected
         const deselectedNodes = get().nodes.map(n => ({ ...n, selected: false }));
+        const deselectedEdges = get().edges.map(e => ({ ...e, selected: false }));
         set({
           nodes: [...deselectedNodes, newNode],
+          edges: deselectedEdges,
           selectedNodeId: id,
           selectedEdgeId: null,
           selectedSimNodeName: null,
@@ -628,11 +629,18 @@ export const useTopologyStore = create<TopologyStore>()(
           ...simNodeData,
           id: generateSimNodeId(),
         };
+        const deselectedNodes = get().nodes.map(n => ({ ...n, selected: false }));
+        const deselectedEdges = get().edges.map(e => ({ ...e, selected: false }));
         set({
+          nodes: deselectedNodes,
+          edges: deselectedEdges,
           simulation: {
             ...get().simulation,
             simNodes: [...get().simulation.simNodes, simNode],
           },
+          selectedNodeId: null,
+          selectedEdgeId: null,
+          selectedSimNodeName: simNode.name,
         });
         get().triggerYamlRefresh();
       },
@@ -1053,29 +1061,27 @@ export const useTopologyStore = create<TopologyStore>()(
             }
           }
 
-          // Always set simulation from YAML (clear if not present)
           if (parsed.spec?.simulation) {
             const simDataFromYaml = parsed.spec.simulation as Simulation;
-            if (simDataFromYaml.simNodes) {
-              simDataFromYaml.simNodes = simDataFromYaml.simNodes.map((simNode, index) => {
-                // Get position from labels first
-                const labelX = simNode.labels?.['pos/x'];
-                const labelY = simNode.labels?.['pos/y'];
-                const positionFromLabels = labelX && labelY
-                  ? { x: parseFloat(labelX), y: parseFloat(labelY) }
-                  : null;
-                // Fall back to existing position or default grid
-                const existing = currentSimNodes.find(n => n.name === simNode.name);
-                const position = positionFromLabels || existing?.position || { x: 400 + (index % 3) * 180, y: 50 + Math.floor(index / 3) * 140 };
-                // Use pre-generated ID from map
-                const id = simNodeIdMap.get(simNode.name) || generateSimNodeId();
-                return { ...simNode, id, position };
-              });
-            }
-            updates.simulation = simDataFromYaml;
+            const simNodes = (simDataFromYaml.simNodes || []).map((simNode, index) => {
+              const labelX = simNode.labels?.['pos/x'];
+              const labelY = simNode.labels?.['pos/y'];
+              const positionFromLabels = labelX && labelY
+                ? { x: parseFloat(labelX), y: parseFloat(labelY) }
+                : null;
+              const existing = currentSimNodes.find(n => n.name === simNode.name);
+              const position = positionFromLabels || existing?.position || { x: 400 + (index % 3) * 180, y: 50 + Math.floor(index / 3) * 140 };
+              const id = simNodeIdMap.get(simNode.name) || generateSimNodeId();
+              return { ...simNode, id, position };
+            });
+            updates.simulation = {
+              simNodeTemplates: baseTemplate.simulation?.simNodeTemplates || [],
+              simNodes,
+              topology: simDataFromYaml.topology,
+            };
           } else {
             updates.simulation = {
-              simNodeTemplates: [],
+              simNodeTemplates: baseTemplate.simulation?.simNodeTemplates || [],
               simNodes: [],
             };
           }

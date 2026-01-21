@@ -198,6 +198,12 @@ function TopologyEditorInner() {
 
   const [selectedSimNodes, setSelectedSimNodes] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    if (selectedNodeId || selectedEdgeId) {
+      setSelectedSimNodes(new Set());
+    }
+  }, [selectedNodeId, selectedEdgeId]);
+
   const simFlowNodes: Node<SimDeviceNodeData>[] = useMemo(() => {
     if (!showSimNodes) return [];
     return simulation.simNodes.map((simNode, index) => ({
