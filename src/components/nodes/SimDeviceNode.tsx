@@ -9,7 +9,7 @@ export interface SimDeviceNodeData {
   simNode: SimNode;
 }
 
-function SimDeviceNode({ data, selected }: NodeProps) {
+function SimDeviceNode({ id, data, selected }: NodeProps) {
   const nodeData = data as SimDeviceNodeData;
   const simNode = nodeData.simNode;
 
@@ -30,6 +30,7 @@ function SimDeviceNode({ data, selected }: NodeProps) {
 
   return (
     <BaseNode
+      nodeId={id}
       selected={selected ?? false}
       name={simNode.name}
       icon={icon}

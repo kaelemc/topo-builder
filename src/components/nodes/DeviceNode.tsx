@@ -27,6 +27,7 @@ export default function DeviceNode({ id, data, selected }: NodeProps) {
 
   return (
     <BaseNode
+      nodeId={id}
       selected={selected ?? false}
       name={nodeData.name}
       icon={iconSvg ? <span dangerouslySetInnerHTML={{ __html: iconSvg }} /> : undefined}
