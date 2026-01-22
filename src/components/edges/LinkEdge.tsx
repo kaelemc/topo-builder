@@ -65,6 +65,7 @@ export default function LinkEdge({
       style={{
         stroke: selected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)',
         strokeWidth: 1,
+        ...(isSimNodeEdge && { strokeDasharray: '5 5' }),
       }}
     />
   );

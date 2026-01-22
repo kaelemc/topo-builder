@@ -29,7 +29,10 @@ import {
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
   Terminal as TerminalIcon,
+  PhotoCamera as PhotoCameraIcon,
 } from '@mui/icons-material';
+import { toSvg } from 'html-to-image';
+import { getNodesBounds } from '@xyflow/react';
 import { useTopologyStore } from '../lib/store';
 import { exportToYaml, downloadYaml } from '../lib/converter';
 import { validateNetworkTopology, type ValidationResult } from '../lib/validate';
@@ -107,6 +110,39 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setValidationDialogOpen(true);
   };
 
+  const handleExportSvg = async () => {
+    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement;
+    if (!viewport) {
+      setError('Could not find canvas');
+      return;
+    }
+
+    const padding = 100;
+    const nodesBounds = getNodesBounds(nodes);
+    const imageWidth = Math.max(nodesBounds.width + padding * 2, 400);
+    const imageHeight = Math.max(nodesBounds.height + padding * 2, 400);
+
+    try {
+      const dataUrl = await toSvg(viewport, {
+        width: imageWidth,
+        height: imageHeight,
+        style: {
+          width: `${imageWidth}px`,
+          height: `${imageHeight}px`,
+          transform: `translate(${-nodesBounds.x + padding}px, ${-nodesBounds.y + padding}px) scale(1)`,
+        },
+      });
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `${topologyName}-${Date.now()}.svg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch {
+      setError('Failed to export SVG');
+    }
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -139,6 +175,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Tooltip title="Download YAML">
                 <IconButton size="small" onClick={handleDownload} sx={{ color: 'white' }}>
                   <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Save as SVG">
+                <IconButton size="small" onClick={handleExportSvg} sx={{ color: 'white' }}>
+                  <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title={darkMode ? 'Light mode' : 'Dark mode'}>
