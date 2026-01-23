@@ -364,7 +364,7 @@ export const useTopologyStore = create<TopologyStore>()(
         if (existingEdge && existingEdge.data) {
           const existingMemberLinks = existingEdge.data.memberLinks || [];
           const newMemberLink: MemberLink = {
-            name: `${sourceNode}-${targetNode}-${existingMemberLinks.length + 1}`,
+            name: `${targetNode}-${sourceNode}-${existingMemberLinks.length + 1}`,
             template: 'isl',
             sourceInterface: `ethernet-1-${nextSourcePort}`,
             targetInterface: `ethernet-1-${nextTargetPort}`,
@@ -408,7 +408,7 @@ export const useTopologyStore = create<TopologyStore>()(
             sourceNode,
             targetNode,
             memberLinks: [{
-              name: `${sourceNode}-${targetNode}-1`,
+              name: `${targetNode}-${sourceNode}-1`,
               template: 'isl',
               sourceInterface: `ethernet-1-${nextSourcePort}`,
               targetInterface: `ethernet-1-${nextTargetPort}`,
