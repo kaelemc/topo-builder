@@ -76,6 +76,30 @@ export interface NetworkNode {
   labels?: Record<string, string>;
 }
 
+export interface SimNodeTemplate {
+  name: string;
+  type?: SimNodeType;
+  image?: string;
+  labels?: Record<string, string>;
+}
+
+export interface SimNode {
+  id: string;
+  name: string;
+  template?: string;
+  type?: SimNodeType;
+  image?: string;
+  labels?: Record<string, string>;
+  position?: { x: number; y: number };
+  isNew?: boolean;
+}
+
+export interface Simulation {
+  simNodeTemplates: SimNodeTemplate[];
+  simNodes: SimNode[];
+  topology?: unknown;
+}
+
 export interface TopologyState {
   topologyName: string;
   namespace: string;
@@ -85,9 +109,14 @@ export interface TopologyState {
   nodes: import('@xyflow/react').Node<TopologyNodeData>[];
   edges: import('@xyflow/react').Edge<TopologyEdgeData>[];
   edgeLinks: EdgeLink[];
-  simulation?: unknown;
+  simulation: Simulation;
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
   selectedEdgeLinkIndex: number | null;
+  selectedSimNodeName: string | null;
   yamlRefreshCounter: number;
+  layoutVersion: number;
+  darkMode: boolean;
+  showSimNodes: boolean;
+  error: string | null;
 }

@@ -415,12 +415,12 @@ export const useTopologyStore = create<TopologyStore>()(
           edges: get().edges.map((edge) =>
             edge.id === edgeId
               ? {
-                  ...edge,
-                  data: {
-                    ...edge.data,
-                    memberLinks: [...(edge.data?.memberLinks || []), link],
-                  } as TopologyEdgeData,
-                }
+                ...edge,
+                data: {
+                  ...edge.data,
+                  memberLinks: [...(edge.data?.memberLinks || []), link],
+                } as TopologyEdgeData,
+              }
               : edge
           ),
         });
@@ -431,14 +431,14 @@ export const useTopologyStore = create<TopologyStore>()(
           edges: get().edges.map((edge) =>
             edge.id === edgeId
               ? {
-                  ...edge,
-                  data: {
-                    ...edge.data,
-                    memberLinks: edge.data?.memberLinks?.map((m, i) =>
-                      i === index ? { ...m, ...link } : m
-                    ) || [],
-                  } as TopologyEdgeData,
-                }
+                ...edge,
+                data: {
+                  ...edge.data,
+                  memberLinks: edge.data?.memberLinks?.map((m, i) =>
+                    i === index ? { ...m, ...link } : m
+                  ) || [],
+                } as TopologyEdgeData,
+              }
               : edge
           ),
         });
@@ -449,12 +449,12 @@ export const useTopologyStore = create<TopologyStore>()(
           edges: get().edges.map((edge) =>
             edge.id === edgeId
               ? {
-                  ...edge,
-                  data: {
-                    ...edge.data,
-                    memberLinks: edge.data?.memberLinks?.filter((_, i) => i !== index) || [],
-                  } as TopologyEdgeData,
-                }
+                ...edge,
+                data: {
+                  ...edge.data,
+                  memberLinks: edge.data?.memberLinks?.filter((_, i) => i !== index) || [],
+                } as TopologyEdgeData,
+              }
               : edge
           ),
         });
@@ -1054,8 +1054,8 @@ export const useTopologyStore = create<TopologyStore>()(
                 // Check if edge already exists with same handles
                 const existingEdge = currentEdges.find(
                   e => ((e.source === sourceId && e.target === targetId) ||
-                       (e.source === targetId && e.target === sourceId)) &&
-                       e.sourceHandle === sourceHandle && e.targetHandle === targetHandle
+                    (e.source === targetId && e.target === sourceId)) &&
+                    e.sourceHandle === sourceHandle && e.targetHandle === targetHandle
                 );
                 const id = existingEdge?.id || `edge-${edgeIdCounter++}`;
 
@@ -1117,9 +1117,17 @@ export const useTopologyStore = create<TopologyStore>()(
       name: 'topology-storage',
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<TopologyState>;
+        const nodes = persisted.nodes?.map(node => ({ ...node, data: { ...node.data, isNew: false } })) || currentState.nodes;
+        const persistedSimulation = persisted.simulation as Simulation | undefined;
+        const simulation: Simulation = persistedSimulation ? {
+          ...persistedSimulation,
+          simNodes: persistedSimulation.simNodes?.map((simNode: SimNode) => ({ ...simNode, isNew: false })) || [],
+        } : currentState.simulation;
         return {
           ...currentState,
           ...persisted,
+          nodes,
+          simulation,
           // Ensure default templates if persisted state has empty arrays
           nodeTemplates: persisted.nodeTemplates?.length ? persisted.nodeTemplates : initialState.nodeTemplates,
           linkTemplates: persisted.linkTemplates?.length ? persisted.linkTemplates : initialState.linkTemplates,
