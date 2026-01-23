@@ -71,7 +71,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const edges = useTopologyStore((state) => state.edges);
   const nodeTemplates = useTopologyStore((state) => state.nodeTemplates);
   const linkTemplates = useTopologyStore((state) => state.linkTemplates);
-  const edgeLinks = useTopologyStore((state) => state.edgeLinks);
   const simulation = useTopologyStore((state) => state.simulation);
   const error = useTopologyStore((state) => state.error);
   const setError = useTopologyStore((state) => state.setError);
@@ -89,7 +88,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   
   const getYaml = (withTimestamp = false) => exportToYaml({
     topologyName: withTimestamp ? `${topologyName}-${Date.now()}` : topologyName,
-    namespace, operation, nodes, edges, nodeTemplates, linkTemplates, edgeLinks, simulation,
+    namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation,
   });
 
   const handleDownload = () => downloadYaml(getYaml(true), `${topologyName}-${Date.now()}.yaml`);

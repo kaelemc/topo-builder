@@ -24,7 +24,6 @@ import type {
   TopologyNodeData,
   NodeTemplate,
   LinkTemplate,
-  EdgeLink,
   LinkType,
   LinkSpeed,
   EncapType,
@@ -35,9 +34,6 @@ import type {
 export function SelectionPanel() {
   const selectedNodeId = useTopologyStore((state) => state.selectedNodeId);
   const selectedEdgeId = useTopologyStore((state) => state.selectedEdgeId);
-  const selectedEdgeLinkIndex = useTopologyStore(
-    (state) => state.selectedEdgeLinkIndex,
-  );
   const selectedSimNodeName = useTopologyStore(
     (state) => state.selectedSimNodeName,
   );
@@ -45,7 +41,6 @@ export function SelectionPanel() {
   const edges = useTopologyStore((state) => state.edges);
   const nodeTemplates = useTopologyStore((state) => state.nodeTemplates);
   const linkTemplates = useTopologyStore((state) => state.linkTemplates);
-  const edgeLinks = useTopologyStore((state) => state.edgeLinks);
   const simulation = useTopologyStore((state) => state.simulation);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
@@ -55,8 +50,6 @@ export function SelectionPanel() {
   );
   const updateNode = useTopologyStore((state) => state.updateNode);
   const updateEdge = useTopologyStore((state) => state.updateEdge);
-  const updateEdgeLink = useTopologyStore((state) => state.updateEdgeLink);
-  const deleteEdgeLink = useTopologyStore((state) => state.deleteEdgeLink);
   const updateSimNode = useTopologyStore((state) => state.updateSimNode);
   const triggerYamlRefresh = useTopologyStore(
     (state) => state.triggerYamlRefresh,
@@ -92,252 +85,11 @@ export function SelectionPanel() {
     return null;
   }
 
-  // Handle edge link selection (via stub click)
-  if (selectedEdgeLinkIndex !== null && edgeLinks[selectedEdgeLinkIndex]) {
-    const link = edgeLinks[selectedEdgeLinkIndex];
-
-    const handleUpdateEdgeLinkField = (update: Partial<EdgeLink>) => {
-      updateEdgeLink(selectedEdgeLinkIndex, { ...link, ...update });
-      triggerYamlRefresh();
-    };
-
-    const handleUpdateEdgeLinkEndpoint = (
-      field: "interface" | "simNode" | "simNodeInterface",
-      value: string,
-    ) => {
-      const currentEndpoint = link.endpoints[0] || {
-        local: { node: "", interface: "" },
-      };
-
-      if (field === "interface") {
-        updateEdgeLink(selectedEdgeLinkIndex, {
-          ...link,
-          endpoints: [
-            {
-              ...currentEndpoint,
-              local: { ...currentEndpoint.local, interface: value },
-            },
-          ],
-        });
-      } else if (field === "simNode") {
-        updateEdgeLink(selectedEdgeLinkIndex, {
-          ...link,
-          endpoints: [
-            {
-              ...currentEndpoint,
-              sim: value
-                ? {
-                    simNode: value,
-                    simNodeInterface: currentEndpoint.sim?.simNodeInterface,
-                  }
-                : undefined,
-            },
-          ],
-        });
-      } else if (field === "simNodeInterface") {
-        updateEdgeLink(selectedEdgeLinkIndex, {
-          ...link,
-          endpoints: [
-            {
-              ...currentEndpoint,
-              sim: currentEndpoint.sim?.simNode
-                ? {
-                    ...currentEndpoint.sim,
-                    simNodeInterface: value || undefined,
-                  }
-                : undefined,
-            },
-          ],
-        });
-      }
-      triggerYamlRefresh();
-    };
-
-    const handleDeleteEdgeLinkClick = () => {
-      deleteEdgeLink(selectedEdgeLinkIndex);
-      triggerYamlRefresh();
-    };
-
-    return (
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <Typography variant="subtitle2" fontWeight={600}>
-          Edge Link
-        </Typography>
-
-        <TextField
-          label="Link Name"
-          size="small"
-          value={link.name}
-          onChange={(e) => handleUpdateEdgeLinkField({ name: e.target.value })}
-          fullWidth
-        />
-
-        <TextField
-          label="Node"
-          size="small"
-          value={link.endpoints[0]?.local?.node || ""}
-          disabled
-          fullWidth
-        />
-
-        <FormControl size="small" fullWidth>
-          <InputLabel>Template</InputLabel>
-          <Select
-            label="Template"
-            value={link.template || ""}
-            onChange={(e) =>
-              handleUpdateEdgeLinkField({ template: e.target.value })
-            }
-          >
-            <MenuItem value="">None</MenuItem>
-            {linkTemplates.map((t) => (
-              <MenuItem key={t.name} value={t.name}>
-                {t.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <TextField
-          label="Interface"
-          size="small"
-          value={link.endpoints[0]?.local?.interface || ""}
-          onChange={(e) =>
-            handleUpdateEdgeLinkEndpoint("interface", e.target.value)
-          }
-          fullWidth
-        />
-
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          fontWeight={600}
-          sx={{ mt: 1 }}
-        >
-          Sim Connection
-        </Typography>
-
-        <FormControl size="small" fullWidth>
-          <InputLabel>SimNode</InputLabel>
-          <Select
-            label="SimNode"
-            value={link.endpoints[0]?.sim?.simNode || ""}
-            onChange={(e) =>
-              handleUpdateEdgeLinkEndpoint("simNode", e.target.value)
-            }
-          >
-            <MenuItem value="">None</MenuItem>
-            {simulation.simNodes.map((s) => (
-              <MenuItem key={s.name} value={s.name}>
-                {s.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {link.endpoints[0]?.sim?.simNode && (
-          <TextField
-            label="SimNode Interface"
-            size="small"
-            value={link.endpoints[0]?.sim?.simNodeInterface || ""}
-            onChange={(e) =>
-              handleUpdateEdgeLinkEndpoint("simNodeInterface", e.target.value)
-            }
-            fullWidth
-            placeholder="e.g., eth1"
-          />
-        )}
-
-        <Button
-          variant="outlined"
-          color="error"
-          size="small"
-          startIcon={<DeleteIcon />}
-          onClick={handleDeleteEdgeLinkClick}
-        >
-          Delete Edge Link
-        </Button>
-      </Box>
-    );
-  }
-
   if (selectedNode) {
     const nodeData = selectedNode.data;
-    // Filter edge links for this node
-    const nodeEdgeLinks = edgeLinks
-      .map((el, index) => ({ el, index }))
-      .filter(({ el }) => el.endpoints[0]?.local?.node === nodeData.name);
 
     const handleUpdateNodeField = (update: Partial<TopologyNodeData>) => {
       updateNode(selectedNode.id, update);
-      triggerYamlRefresh();
-    };
-
-    const handleUpdateEdgeLinkField = (
-      globalIndex: number,
-      update: Partial<EdgeLink>,
-    ) => {
-      const currentLink = edgeLinks[globalIndex];
-      updateEdgeLink(globalIndex, { ...currentLink, ...update });
-      triggerYamlRefresh();
-    };
-
-    const handleUpdateEdgeLinkEndpoint = (
-      globalIndex: number,
-      field: "interface" | "simNode" | "simNodeInterface",
-      value: string,
-    ) => {
-      const currentLink = edgeLinks[globalIndex];
-      const currentEndpoint = currentLink.endpoints[0] || {
-        local: { node: "", interface: "" },
-      };
-
-      if (field === "interface") {
-        updateEdgeLink(globalIndex, {
-          ...currentLink,
-          endpoints: [
-            {
-              ...currentEndpoint,
-              local: { ...currentEndpoint.local, interface: value },
-            },
-          ],
-        });
-      } else if (field === "simNode") {
-        updateEdgeLink(globalIndex, {
-          ...currentLink,
-          endpoints: [
-            {
-              ...currentEndpoint,
-              sim: value
-                ? {
-                    simNode: value,
-                    simNodeInterface: currentEndpoint.sim?.simNodeInterface,
-                  }
-                : undefined,
-            },
-          ],
-        });
-      } else if (field === "simNodeInterface") {
-        updateEdgeLink(globalIndex, {
-          ...currentLink,
-          endpoints: [
-            {
-              ...currentEndpoint,
-              sim: currentEndpoint.sim?.simNode
-                ? {
-                    ...currentEndpoint.sim,
-                    simNodeInterface: value || undefined,
-                  }
-                : undefined,
-            },
-          ],
-        });
-      }
-      triggerYamlRefresh();
-    };
-
-    const handleDeleteEdgeLinkClick = (globalIndex: number) => {
-      deleteEdgeLink(globalIndex);
       triggerYamlRefresh();
     };
 
@@ -373,131 +125,6 @@ export function SelectionPanel() {
             ))}
           </Select>
         </FormControl>
-
-        {nodeEdgeLinks.length > 0 && (
-          <>
-            <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 1 }}>
-              Edge Links
-            </Typography>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              {nodeEdgeLinks.map(({ el: link, index: globalIndex }) => (
-                <Paper key={globalIndex} variant="outlined" sx={{ p: 1 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      mb: 1,
-                    }}
-                  >
-                    <TextField
-                      label="Link Name"
-                      size="small"
-                      value={link.name}
-                      onChange={(e) =>
-                        handleUpdateEdgeLinkField(globalIndex, {
-                          name: e.target.value,
-                        })
-                      }
-                      sx={{ flex: 1, mr: 1 }}
-                    />
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDeleteEdgeLinkClick(globalIndex)}
-                    >
-                      <DeleteIcon fontSize="small" color="error" />
-                    </IconButton>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 1,
-                      mb: 1,
-                    }}
-                  >
-                    <FormControl size="small" fullWidth>
-                      <InputLabel>Template</InputLabel>
-                      <Select
-                        label="Template"
-                        value={link.template || ""}
-                        onChange={(e) =>
-                          handleUpdateEdgeLinkField(globalIndex, {
-                            template: e.target.value,
-                          })
-                        }
-                      >
-                        <MenuItem value="">None</MenuItem>
-                        {linkTemplates.map((t) => (
-                          <MenuItem key={t.name} value={t.name}>
-                            {t.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <TextField
-                      label="Interface"
-                      size="small"
-                      value={link.endpoints[0]?.local?.interface || ""}
-                      onChange={(e) =>
-                        handleUpdateEdgeLinkEndpoint(
-                          globalIndex,
-                          "interface",
-                          e.target.value,
-                        )
-                      }
-                      fullWidth
-                    />
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 1,
-                    }}
-                  >
-                    <FormControl size="small" fullWidth>
-                      <InputLabel>SimNode</InputLabel>
-                      <Select
-                        label="SimNode"
-                        value={link.endpoints[0]?.sim?.simNode || ""}
-                        onChange={(e) =>
-                          handleUpdateEdgeLinkEndpoint(
-                            globalIndex,
-                            "simNode",
-                            e.target.value,
-                          )
-                        }
-                      >
-                        <MenuItem value="">None</MenuItem>
-                        {simulation.simNodes.map((s) => (
-                          <MenuItem key={s.name} value={s.name}>
-                            {s.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <TextField
-                      label="SimNode Interface"
-                      size="small"
-                      value={link.endpoints[0]?.sim?.simNodeInterface || ""}
-                      onChange={(e) =>
-                        handleUpdateEdgeLinkEndpoint(
-                          globalIndex,
-                          "simNodeInterface",
-                          e.target.value,
-                        )
-                      }
-                      fullWidth
-                      placeholder="e.g., eth1"
-                      disabled={!link.endpoints[0]?.sim?.simNode}
-                    />
-                  </Box>
-                </Paper>
-              ))}
-            </Box>
-          </>
-        )}
       </Box>
     );
   }

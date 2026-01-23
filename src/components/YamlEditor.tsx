@@ -126,7 +126,7 @@ export function jumpToLinkInEditor(sourceNode: string, targetNode: string): void
 export default function YamlEditor() {
   const {
     topologyName, namespace, operation, nodes, edges,
-    nodeTemplates, linkTemplates, edgeLinks, simulation,
+    nodeTemplates, linkTemplates, simulation,
     importFromYaml, yamlRefreshCounter, darkMode,
   } = useTopologyStore();
 
@@ -135,7 +135,7 @@ export default function YamlEditor() {
   const isRefreshingRef = useRef(false);
 
   const getYamlFromState = () => exportToYaml({
-    topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, edgeLinks, simulation,
+    topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation,
   });
 
   useEffect(() => {

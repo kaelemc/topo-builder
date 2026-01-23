@@ -11,7 +11,6 @@ import type {
   TopologyState,
   NodeTemplate,
   LinkTemplate,
-  EdgeLink,
   MemberLink,
   Operation,
   SimNodeTemplate,
@@ -80,11 +79,6 @@ interface TopologyActions {
   updateMemberLink: (edgeId: string, index: number, link: Partial<MemberLink>) => void;
   deleteMemberLink: (edgeId: string, index: number) => void;
 
-  // Edge link actions
-  addEdgeLink: (nodeId: string) => void;
-  updateEdgeLink: (index: number, link: Partial<EdgeLink>) => void;
-  deleteEdgeLink: (index: number) => void;
-
   // Template actions
   addNodeTemplate: (template: NodeTemplate) => boolean;
   updateNodeTemplate: (name: string, template: Partial<NodeTemplate>) => boolean;
@@ -104,7 +98,6 @@ interface TopologyActions {
   // Selection actions
   selectNode: (id: string | null) => void;
   selectEdge: (id: string | null) => void;
-  selectEdgeLink: (index: number | null) => void;
   selectSimNode: (name: string | null) => void;
 
   // Import from YAML
@@ -176,14 +169,12 @@ const initialState: TopologyState = {
   linkTemplates: baseTemplate.linkTemplates || [],
   nodes: [],
   edges: [],
-  edgeLinks: [],
   simulation: baseTemplate.simulation || {
     simNodeTemplates: [],
     simNodes: [],
   },
   selectedNodeId: null,
   selectedEdgeId: null,
-  selectedEdgeLinkIndex: null,
   selectedSimNodeName: null,
   yamlRefreshCounter: 0,
   layoutVersion: 0,
@@ -474,46 +465,6 @@ export const useTopologyStore = create<TopologyStore>()(
         get().addEdge(connection);
       },
 
-      // Edge link actions
-      addEdgeLink: (nodeId: string) => {
-        const node = get().nodes.find(n => n.id === nodeId);
-        if (!node) return;
-
-        const nodeName = node.data.name;
-        const existingCount = get().edgeLinks.filter(
-          el => el.endpoints[0]?.local?.node === nodeName
-        ).length;
-
-        const newEdgeLink: EdgeLink = {
-          name: `${nodeName}-ethernet-1-${existingCount + 1}`,
-          template: 'edge',
-          endpoints: [{
-            local: {
-              node: nodeName,
-              interface: `ethernet-1-${existingCount + 1}`,
-            },
-          }],
-        };
-
-        set({ edgeLinks: [...get().edgeLinks, newEdgeLink] });
-        get().triggerYamlRefresh();
-      },
-
-      updateEdgeLink: (index: number, link: Partial<EdgeLink>) => {
-        set({
-          edgeLinks: get().edgeLinks.map((el, i) =>
-            i === index ? { ...el, ...link } : el
-          ),
-        });
-      },
-
-      deleteEdgeLink: (index: number) => {
-        set({
-          edgeLinks: get().edgeLinks.filter((_, i) => i !== index),
-        });
-        get().triggerYamlRefresh();
-      },
-
       // Template actions
       addNodeTemplate: (template: NodeTemplate) => {
         const existingNames = get().nodeTemplates.map(t => t.name);
@@ -723,26 +674,21 @@ export const useTopologyStore = create<TopologyStore>()(
 
       // Selection actions
       selectNode: (id: string | null) => {
-        set({ selectedNodeId: id, selectedEdgeId: null, selectedEdgeLinkIndex: null, selectedSimNodeName: null });
+        set({ selectedNodeId: id, selectedEdgeId: null, selectedSimNodeName: null });
       },
 
       selectEdge: (id: string | null) => {
         set({
           selectedEdgeId: id,
           selectedNodeId: null,
-          selectedEdgeLinkIndex: null,
           selectedSimNodeName: null,
           edges: get().edges.map(e => ({ ...e, selected: e.id === id })),
           nodes: get().nodes.map(n => ({ ...n, selected: false })),
         });
       },
 
-      selectEdgeLink: (index: number | null) => {
-        set({ selectedEdgeLinkIndex: index, selectedNodeId: null, selectedEdgeId: null, selectedSimNodeName: null });
-      },
-
       selectSimNode: (name: string | null) => {
-        set({ selectedSimNodeName: name, selectedNodeId: null, selectedEdgeId: null, selectedEdgeLinkIndex: null });
+        set({ selectedSimNodeName: name, selectedNodeId: null, selectedEdgeId: null });
       },
 
       // Clear all
@@ -877,7 +823,6 @@ export const useTopologyStore = create<TopologyStore>()(
             set({
               nodes: [],
               edges: [],
-              edgeLinks: [],
               nodeTemplates: initialState.nodeTemplates,
               linkTemplates: initialState.linkTemplates,
               simulation: {
@@ -982,40 +927,17 @@ export const useTopologyStore = create<TopologyStore>()(
               // Add simNode IDs to the mapping (using pre-generated IDs)
               simNodeIdMap.forEach((id, name) => nameToNewId.set(name, id));
 
-              const newEdgeLinks: EdgeLink[] = [];
               // Group ISL links by node pair
               const islLinksByPair = new Map<string, { memberLinks: MemberLink[], sourceHandle: string, targetHandle: string }>();
 
               for (const link of parsed.spec.links) {
-                // Check if this is an ISL (has remote to another topology node) or edge link (sim or external)
+                // Check if this is an ISL (has remote to another topology node)
                 const endpoint = link.endpoints?.[0];
                 const hasRemote = endpoint?.remote?.node;
-                const hasSim = endpoint?.sim?.simNode;
                 const hasLocal = endpoint?.local?.node;
 
-                if (!hasRemote || !hasLocal || hasSim) {
-                  // Edge link - store as-is for export (convert to EdgeLink format)
-                  // This includes links with sim: endpoints
-                  if (link.endpoints) {
-                    newEdgeLinks.push({
-                      name: link.name,
-                      template: link.template,
-                      endpoints: link.endpoints.map(ep => ({
-                        local: {
-                          node: ep.local?.node || '',
-                          interface: ep.local?.interface,
-                        },
-                        remote: ep.remote ? {
-                          node: ep.remote.node,
-                          interface: ep.remote.interface,
-                        } : undefined,
-                        sim: ep.sim ? {
-                          simNode: ep.sim.simNode,
-                          simNodeInterface: ep.sim.simNodeInterface,
-                        } : undefined,
-                      })),
-                    });
-                  }
+                if (!hasRemote || !hasLocal) {
+                  // Skip non-ISL links (edge links, sim links, etc.)
                   continue;
                 }
 
@@ -1076,7 +998,6 @@ export const useTopologyStore = create<TopologyStore>()(
               }
 
               updates.edges = newEdges;
-              updates.edgeLinks = newEdgeLinks;
             }
           }
 

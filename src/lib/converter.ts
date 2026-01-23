@@ -6,7 +6,6 @@ import type {
   NetworkNode,
   NodeTemplate,
   LinkTemplate,
-  EdgeLink,
   Operation,
   Simulation,
 } from '../types/topology';
@@ -20,7 +19,6 @@ interface ExportOptions {
   edges: Edge<TopologyEdgeData>[];
   nodeTemplates: NodeTemplate[];
   linkTemplates: LinkTemplate[];
-  edgeLinks?: EdgeLink[];
   simulation?: Simulation;
 }
 
@@ -29,8 +27,9 @@ interface YamlLink {
   template?: string;
   labels?: Record<string, string>;
   endpoints: Array<{
-    local: { node: string; interface: string };
-    remote: { node: string; interface: string };
+    local?: { node: string; interface?: string };
+    remote?: { node: string; interface?: string };
+    sim?: { simNode: string; simNodeInterface?: string };
   }>;
 }
 
@@ -46,7 +45,7 @@ interface NetworkTopologyCrd {
     nodeTemplates: NodeTemplate[];
     nodes: NetworkNode[];
     linkTemplates: LinkTemplate[];
-    links: Array<YamlLink | EdgeLink>;
+    links: YamlLink[];
     simulation?: Simulation;
   };
 }
@@ -60,7 +59,6 @@ export function exportToYaml(options: ExportOptions): string {
     edges,
     nodeTemplates,
     linkTemplates,
-    edgeLinks = [],
     simulation,
   } = options;
 
@@ -105,7 +103,7 @@ export function exportToYaml(options: ExportOptions): string {
   // Convert React Flow edges to ISL links (expand member links)
   // Skip edges to sim nodes - those should be created as edge links with sim: endpoint
   const islLinks: YamlLink[] = [];
-  const simEdgeLinks: EdgeLink[] = [];
+  const simLinks: YamlLink[] = [];
 
   for (const edge of edges) {
     const sourceName = edge.data?.sourceNode || nodeIdToName.get(edge.source) || edge.source;
@@ -124,7 +122,7 @@ export function exportToYaml(options: ExportOptions): string {
         const labels: Record<string, string> = {};
         if (edge.sourceHandle) labels[LABEL_SRC_HANDLE] = edge.sourceHandle;
         if (edge.targetHandle) labels[LABEL_DST_HANDLE] = edge.targetHandle;
-        simEdgeLinks.push({
+        simLinks.push({
           name: member.name,
           template: member.template,
           labels: Object.keys(labels).length > 0 ? labels : undefined,
@@ -145,7 +143,7 @@ export function exportToYaml(options: ExportOptions): string {
         const labels: Record<string, string> = {};
         if (edge.sourceHandle) labels[LABEL_SRC_HANDLE] = edge.sourceHandle;
         if (edge.targetHandle) labels[LABEL_DST_HANDLE] = edge.targetHandle;
-        simEdgeLinks.push({
+        simLinks.push({
           name: member.name,
           template: member.template,
           labels: Object.keys(labels).length > 0 ? labels : undefined,
@@ -199,8 +197,8 @@ export function exportToYaml(options: ExportOptions): string {
     }
   }
 
-  // Combine ISL links, sim edge links, and user-defined edge links
-  const allLinks = [...islLinks, ...simEdgeLinks, ...edgeLinks];
+  // Combine ISL links and sim edge links
+  const allLinks = [...islLinks, ...simLinks];
 
   // Build the full CRD object
   const crd: NetworkTopologyCrd = {

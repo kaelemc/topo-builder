@@ -13,7 +13,6 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   DeleteSweep as ClearAllIcon,
-  CallMade as EdgeLinkIcon,
   ViewInAr as SimNodeIcon,
   ChevronRight as ChevronRightIcon,
   SwapHoriz as SwapIcon,
@@ -27,7 +26,6 @@ interface ContextMenuProps {
   onClose: () => void;
   onAddNode: (templateName?: string) => void;
   onAddSimNode?: () => void;
-  onAddEdgeLink?: () => void;
   onDeleteNode?: () => void;
   onDeleteEdge?: () => void;
   onDeleteSimNode?: () => void;
@@ -45,7 +43,6 @@ export default function ContextMenu({
   onClose,
   onAddNode,
   onAddSimNode,
-  onAddEdgeLink,
   onDeleteNode,
   onDeleteEdge,
   onDeleteSimNode,
@@ -101,15 +98,6 @@ export default function ContextMenu({
                   <ListItemText>Add SimNode</ListItemText>
                 </MenuItem>
               )}
-
-              {hasSelection === 'node' && onAddEdgeLink && (
-                <MenuItem onClick={() => { onAddEdgeLink(); onClose(); }}>
-                  <ListItemIcon><EdgeLinkIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Add Edge Link</ListItemText>
-                </MenuItem>
-              )}
-
-              {hasSelection === 'node' && <Divider />}
 
               {hasSelection === 'node' && hasTemplates && onChangeNodeTemplate && (
                 <Box

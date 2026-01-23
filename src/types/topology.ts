@@ -51,23 +51,6 @@ export interface LinkTemplate {
   labels?: Record<string, string>;
 }
 
-export interface EdgeLinkEndpoint {
-  local: {
-    node: string;
-    interface?: string;
-  };
-  remote?: {
-    node: string;
-    interface?: string;
-  };
-}
-
-export interface EdgeLink {
-  name: string;
-  template?: string;
-  endpoints: EdgeLinkEndpoint[];
-}
-
 export interface NetworkNode {
   name: string;
   platform?: string;
@@ -108,11 +91,9 @@ export interface TopologyState {
   linkTemplates: LinkTemplate[];
   nodes: import('@xyflow/react').Node<TopologyNodeData>[];
   edges: import('@xyflow/react').Edge<TopologyEdgeData>[];
-  edgeLinks: EdgeLink[];
   simulation: Simulation;
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
-  selectedEdgeLinkIndex: number | null;
   selectedSimNodeName: string | null;
   yamlRefreshCounter: number;
   layoutVersion: number;

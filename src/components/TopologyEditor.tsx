@@ -161,7 +161,6 @@ function TopologyEditorInner() {
     addNode,
     deleteNode,
     deleteEdge,
-    addEdgeLink,
     addSimNode,
     deleteSimNode,
     simulation,
@@ -448,7 +447,6 @@ function TopologyEditorInner() {
   const handleAddNode = (templateName?: string) => addNode(contextMenu.flowPosition, templateName);
   const handleDeleteNode = () => selectedNodeId && deleteNode(selectedNodeId);
   const handleDeleteEdge = () => selectedEdgeId && deleteEdge(selectedEdgeId);
-  const handleAddEdgeLink = () => selectedNodeId && addEdgeLink(selectedNodeId);
 
   const handleChangeNodeTemplate = (templateName: string) => {
     if (selectedNodeId) {
@@ -548,7 +546,6 @@ function TopologyEditorInner() {
         onClose={handleCloseContextMenu}
         onAddNode={handleAddNode}
         onAddSimNode={handleAddSimNode}
-        onAddEdgeLink={handleAddEdgeLink}
         onDeleteNode={handleDeleteNode}
         onDeleteEdge={handleDeleteEdge}
         onDeleteSimNode={handleDeleteSimNode}
