@@ -16,7 +16,7 @@ import {
   ViewInAr as SimNodeIcon,
   ChevronRight as ChevronRightIcon,
   SwapHoriz as SwapIcon,
-  Link as LinkIcon,
+  CallMerge as MergeIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState } from 'react';
 import type { NodeTemplate } from '../types/topology';
@@ -145,10 +145,13 @@ export default function ContextMenu({
               )}
 
               {hasSelection === 'edge' && selectedMemberLinkCount >= 2 && onCreateLag && (
-                <MenuItem onClick={() => { onCreateLag(); onClose(); }}>
-                  <ListItemIcon><LinkIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Create Local LAG</ListItemText>
-                </MenuItem>
+                <>
+                  <MenuItem onClick={() => { onCreateLag(); onClose(); }}>
+                    <ListItemIcon><MergeIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Create Local LAG</ListItemText>
+                  </MenuItem>
+                  <Divider />
+                </>
               )}
 
               {hasSelection === 'edge' && onDeleteEdge && (
