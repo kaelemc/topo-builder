@@ -46,6 +46,20 @@ export default function BaseNode({
     if (edge.target === nodeId && edge.targetHandle) {
       connectedHandles.add(edge.targetHandle);
     }
+    const edgeData = edge.data as {
+      esiLeaves?: Array<{ nodeId: string; leafHandle: string; sourceHandle: string }>;
+    } | undefined;
+
+    if (edgeData?.esiLeaves) {
+      for (const leaf of edgeData.esiLeaves) {
+        if (leaf.nodeId === nodeId && leaf.leafHandle) {
+          connectedHandles.add(leaf.leafHandle);
+        }
+        if (edge.source === nodeId && leaf.sourceHandle) {
+          connectedHandles.add(leaf.sourceHandle);
+        }
+      }
+    }
   });
 
   useEffect(() => {

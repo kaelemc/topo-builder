@@ -160,6 +160,7 @@ function TopologyEditorInner() {
     selectSimNode,
     selectedNodeId,
     selectedEdgeId,
+    selectedEdgeIds,
     selectedSimNodeName,
     selectedMemberLinkIndices,
     addNode,
@@ -180,6 +181,7 @@ function TopologyEditorInner() {
     nodeTemplates,
     pasteSelection,
     createLagFromMemberLinks,
+    createMultihomedLag,
   } = useTopologyStore();
 
   const { screenToFlowPosition } = useReactFlow();
@@ -326,7 +328,12 @@ function TopologyEditorInner() {
       if (isCtrlOrCmd && e.key === 'a') {
         e.preventDefault();
         onNodesChange(nodes.map(n => ({ type: 'select' as const, id: n.id, selected: true })));
-        onEdgesChange(edges.map(e => ({ type: 'select' as const, id: e.id, selected: true })));
+        const allEdgeIds = edges.map(edge => edge.id);
+        useTopologyStore.setState({
+          selectedEdgeIds: allEdgeIds,
+          selectedEdgeId: allEdgeIds.length > 0 ? allEdgeIds[allEdgeIds.length - 1] : null,
+          edges: edges.map(edge => ({ ...edge, selected: true })),
+        });
         setSelectedSimNodes(new Set(simulation.simNodes.map(sn => sn.name)));
       }
 
@@ -405,8 +412,8 @@ function TopologyEditorInner() {
     }
   }, [selectNode, selectSimNode, activeTab]);
 
-  const handleEdgeClick = useCallback((_: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
-    selectEdge(edge.id);
+  const handleEdgeClick = useCallback((event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
+    selectEdge(edge.id, event.shiftKey);
     if (activeTab === 0 && edge.data) jumpToLinkInEditor(edge.data.sourceNode, edge.data.targetNode);
   }, [selectEdge, activeTab]);
 
@@ -438,16 +445,17 @@ function TopologyEditorInner() {
 
   const handleEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
     event.preventDefault();
-    // Only call selectEdge if it's a different edge - preserve member link selection on same edge
-    if (selectedEdgeId !== edge.id) {
-      selectEdge(edge.id);
+    // If this edge is already in the selection, preserve multi-selection
+    // Otherwise, select just this edge (unless shift is held)
+    if (!selectedEdgeIds.includes(edge.id)) {
+      selectEdge(edge.id, event.shiftKey);
     }
     setContextMenu({
       open: true,
       position: { x: event.clientX, y: event.clientY },
       flowPosition: { x: 0, y: 0 },
     });
-  }, [selectEdge, selectedEdgeId]);
+  }, [selectEdge, selectedEdgeIds]);
 
   const handleCloseContextMenu = () => {
     setContextMenu(prev => ({ ...prev, open: false }));
@@ -460,6 +468,30 @@ function TopologyEditorInner() {
   const handleCreateLag = () => {
     if (selectedEdgeId && selectedMemberLinkIndices.length >= 2) {
       createLagFromMemberLinks(selectedEdgeId, selectedMemberLinkIndices);
+    }
+  };
+
+  // ENSURE A COMMON NODE IS SELECTED
+  const canCreateEsiLag = (() => {
+    if (selectedEdgeIds.length < 2 || selectedEdgeIds.length > 4) return false;
+
+    const selectedEdges = selectedEdgeIds
+      .map(id => edges.find(e => e.id === id))
+      .filter((e): e is typeof edges[0] => e !== undefined);
+
+    if (selectedEdges.length !== selectedEdgeIds.length) return false;
+
+    const allNodes = selectedEdges.flatMap(e => [e.source, e.target]);
+    const nodeCounts = new Map<string, number>();
+    allNodes.forEach(n => nodeCounts.set(n, (nodeCounts.get(n) || 0) + 1));
+
+    const commonNodes = [...nodeCounts.entries()].filter(([_, count]) => count === selectedEdges.length);
+    return commonNodes.length === 1;
+  })();
+
+  const handleCreateEsiLag = () => {
+    if (selectedEdgeIds.length >= 2 && selectedEdgeIds.length <= 4 && canCreateEsiLag) {
+      createMultihomedLag(selectedEdgeIds[0], selectedEdgeIds[1], selectedEdgeIds.slice(2));
     }
   };
 
@@ -485,7 +517,7 @@ function TopologyEditorInner() {
 
   const handleDeleteSimNode = () => selectedSimNodeName && deleteSimNode(selectedSimNodeName);
 
-  const hasSelection = selectedNodeId ? 'node' : selectedEdgeId ? 'edge' : selectedSimNodeName ? 'simNode' : null;
+  const hasSelection = selectedNodeId ? 'node' : selectedEdgeIds.length > 1 ? 'multiEdge' : selectedEdgeId ? 'edge' : selectedSimNodeName ? 'simNode' : null;
 
   return (
     <AppLayout>
@@ -566,12 +598,14 @@ function TopologyEditorInner() {
         onDeleteSimNode={handleDeleteSimNode}
         onChangeNodeTemplate={handleChangeNodeTemplate}
         onCreateLag={handleCreateLag}
+        onCreateEsiLag={handleCreateEsiLag}
         currentNodeTemplate={currentNodeTemplate}
         onClearAll={clearAll}
         hasSelection={hasSelection}
         hasContent={nodes.length > 0 || edges.length > 0 || simulation.simNodes.length > 0}
         nodeTemplates={nodeTemplates}
         selectedMemberLinkCount={selectedMemberLinkIndices.length}
+        canCreateEsiLag={canCreateEsiLag}
       />
     </AppLayout>
   );

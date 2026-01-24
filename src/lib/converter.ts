@@ -104,8 +104,52 @@ export function exportToYaml(options: ExportOptions): string {
   // Skip edges to sim nodes - those should be created as edge links with sim: endpoint
   const islLinks: YamlLink[] = [];
   const simLinks: YamlLink[] = [];
+  const esiLagLinks: YamlLink[] = [];
+
+  const processedMultihomedEdgeIds = new Set<string>();
+  let esiLagCounter = 1;
 
   for (const edge of edges) {
+    if (edge.data?.isMultihomed && edge.data.esiLeaves?.length) {
+      const sourceName = edge.data.sourceNode;
+      const esiLeaves = edge.data.esiLeaves;
+      const memberLinks = edge.data.memberLinks || [];
+
+      const endpoints: Array<{ local: { node: string; interface: string } }> = [];
+
+      endpoints.push({
+        local: {
+          node: sourceName,
+          interface: memberLinks[0]?.sourceInterface || 'ethernet-1-1',
+        },
+      });
+
+      // Add leaf node endpoints
+      esiLeaves.forEach((leaf, i) => {
+        endpoints.push({
+          local: {
+            node: leaf.nodeName,
+            interface: memberLinks[i]?.targetInterface || 'ethernet-1-1',
+          },
+        });
+      });
+
+      const link: YamlLink = {
+        name: `${sourceName}-esi-lag-${esiLagCounter++}`,
+        template: 'isl',
+        endpoints,
+      };
+      esiLagLinks.push(link);
+
+      processedMultihomedEdgeIds.add(edge.id);
+    }
+  }
+
+  for (const edge of edges) {
+    if (processedMultihomedEdgeIds.has(edge.id)) {
+      continue;
+    }
+
     const sourceName = edge.data?.sourceNode || nodeIdToName.get(edge.source) || edge.source;
     const targetName = edge.data?.targetNode || nodeIdToName.get(edge.target) || edge.target;
 
@@ -236,7 +280,7 @@ export function exportToYaml(options: ExportOptions): string {
   }
 
   // Combine ISL links and sim edge links
-  const allLinks = [...islLinks, ...simLinks];
+  const allLinks = [...islLinks, ...simLinks, ...esiLagLinks];
 
   // Build the full CRD object
   const crd: NetworkTopologyCrd = {
@@ -264,16 +308,7 @@ export function exportToYaml(options: ExportOptions): string {
     // Convert position to labels for simNodes, strip internal id field
     const cleanSimulation = {
       ...simulation,
-      simNodes: simulation.simNodes?.map(({ position, id: _id, ...rest }) => ({
-        ...rest,
-        labels: {
-          ...rest.labels,
-          ...(position ? {
-            [LABEL_POS_X]: String(Math.round(position.x)),
-            [LABEL_POS_Y]: String(Math.round(position.y)),
-          } : {}),
-        },
-      })),
+      simNodes: simulation.simNodes?.map(({ position: _position, id: _id, labels: _labels, isNew: _isNew, ...rest }) => rest),
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     crd.spec.simulation = cleanSimulation as any;

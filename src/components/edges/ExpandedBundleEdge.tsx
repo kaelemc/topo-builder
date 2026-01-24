@@ -1,0 +1,148 @@
+import { EdgeLabelRenderer, Position } from '@xyflow/react';
+import { Chip } from '@mui/material';
+import { createFannedBezierPath, calculateLinkOffsets } from './edgeUtils';
+import type { MemberLink, LagGroup } from '../../types/topology';
+
+interface ExpandedBundleEdgeProps {
+  id: string;
+  sourceX: number;
+  sourceY: number;
+  targetX: number;
+  targetY: number;
+  sourcePosition: Position;
+  targetPosition: Position;
+  isSelected: boolean;
+  isSimNodeEdge: boolean;
+  memberLinks: MemberLink[];
+  lagGroups: LagGroup[];
+  selectedMemberLinkIndices: number[];
+  onDoubleClick: (e: React.MouseEvent) => void;
+  onMemberLinkClick: (e: React.MouseEvent, index: number) => void;
+  onMemberLinkContextMenu: (e: React.MouseEvent, index: number) => void;
+  onLagClick: (e: React.MouseEvent, lagIndices: number[]) => void;
+  onLagContextMenu: (lagIndices: number[]) => void;
+}
+
+export default function ExpandedBundleEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  isSelected,
+  isSimNodeEdge,
+  memberLinks,
+  lagGroups,
+  selectedMemberLinkIndices,
+  onDoubleClick,
+  onMemberLinkClick,
+  onMemberLinkContextMenu,
+  onLagClick,
+  onLagContextMenu,
+}: ExpandedBundleEdgeProps) {
+  const indicesInLags = new Set<number>();
+  for (const lag of lagGroups) {
+    for (const idx of lag.memberLinkIndices) {
+      indicesInLags.add(idx);
+    }
+  }
+
+  type VisualItem = { type: 'link'; index: number } | { type: 'lag'; lag: LagGroup };
+  const visualItems: VisualItem[] = [];
+
+  memberLinks.forEach((_, index) => {
+    if (!indicesInLags.has(index)) {
+      visualItems.push({ type: 'link', index });
+    }
+  });
+
+  for (const lag of lagGroups) {
+    visualItems.push({ type: 'lag', lag });
+  }
+
+  const offsets = calculateLinkOffsets(visualItems.length);
+
+  return (
+    <g onDoubleClick={onDoubleClick}>
+      {visualItems.map((item, visualIndex) => {
+        const offset = offsets[visualIndex];
+        const { path: curvePath, midpoint: curveMidpoint } = createFannedBezierPath(
+          sourceX, sourceY, targetX, targetY,
+          sourcePosition, targetPosition, offset
+        );
+
+        if (item.type === 'link') {
+          const isSelectedMemberLink = isSelected && selectedMemberLinkIndices.includes(item.index);
+
+          return (
+            <g
+              key={`link-${item.index}`}
+              onClick={(e) => onMemberLinkClick(e, item.index)}
+              onContextMenu={(e) => onMemberLinkContextMenu(e, item.index)}
+              style={{ cursor: 'pointer' }}
+            >
+              <path d={curvePath} fill="none" stroke="transparent" strokeWidth={12} />
+              <path
+                d={curvePath}
+                fill="none"
+                stroke={isSelectedMemberLink ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
+                strokeWidth={1}
+                className={isSimNodeEdge ? 'sim-edge' : ''}
+                style={isSimNodeEdge ? { strokeDasharray: '5 5' } : undefined}
+              />
+            </g>
+          );
+        } else {
+          const lagIndices = item.lag.memberLinkIndices;
+          const isLagSelected = isSelected && lagIndices.some(idx => selectedMemberLinkIndices.includes(idx));
+
+          return (
+            <g key={`lag-${item.lag.id}`}>
+              <g
+                onClick={(e) => onLagClick(e, lagIndices)}
+                onContextMenu={() => onLagContextMenu(lagIndices)}
+                style={{ cursor: 'pointer' }}
+              >
+                <path d={curvePath} fill="none" stroke="transparent" strokeWidth={12} />
+                <path
+                  d={curvePath}
+                  fill="none"
+                  stroke={isLagSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
+                  strokeWidth={1}
+                  className={isSimNodeEdge ? 'sim-edge' : ''}
+                  style={isSimNodeEdge ? { strokeDasharray: '5 5' } : undefined}
+                />
+              </g>
+              <EdgeLabelRenderer>
+                <div
+                  style={{
+                    position: 'absolute',
+                    transform: `translate(-50%, -50%) translate(${curveMidpoint.x}px, ${curveMidpoint.y}px)`,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <Chip
+                    label="LAG"
+                    size="small"
+                    title={`Local LAG: ${item.lag.name} (${lagIndices.length} endpoints)`}
+                    sx={{
+                      height: '14px',
+                      fontSize: '8px',
+                      fontWeight: 400,
+                      bgcolor: 'var(--color-node-bg)',
+                      color: 'var(--color-node-text)',
+                      border: '1px solid var(--color-link-stroke)',
+                      '& .MuiChip-label': { px: '3px' },
+                    }}
+                  />
+                </div>
+              </EdgeLabelRenderer>
+            </g>
+          );
+        }
+      })}
+    </g>
+  );
+}

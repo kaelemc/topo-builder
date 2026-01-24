@@ -78,6 +78,15 @@ export interface LagGroup {
   memberLinkIndices: number[];
 }
 
+export interface MultihomeMemberLink {
+  name: string;
+  template?: string;
+  nodeInterfaces: Array<{
+    node: string;
+    interface: string;
+  }>;
+}
+
 export interface TopologyEdgeData {
   [key: string]: unknown;
   id: string;
@@ -85,6 +94,8 @@ export interface TopologyEdgeData {
   targetNode: string;
   memberLinks?: MemberLink[];
   lagGroups?: LagGroup[];
+  // For ESI LAG: edges with same esiLagId are part of the same 3-node LAG
+  esiLagId?: string;
 }
 
 export interface NodeTemplate {
@@ -145,6 +156,7 @@ export interface TopologyState {
   simulation: Simulation;
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
+  selectedEdgeIds: string[];
   selectedSimNodeName: string | null;
   expandedEdges: Set<string>;
   selectedMemberLinkIndices: number[];

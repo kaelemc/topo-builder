@@ -32,12 +32,14 @@ interface ContextMenuProps {
   onDeleteSimNode?: () => void;
   onChangeNodeTemplate?: (templateName: string) => void;
   onCreateLag?: () => void;
+  onCreateEsiLag?: () => void;
   onClearAll: () => void;
-  hasSelection: 'node' | 'edge' | 'simNode' | null;
+  hasSelection: 'node' | 'edge' | 'simNode' | 'multiEdge' | null;
   hasContent: boolean;
   nodeTemplates?: NodeTemplate[];
   currentNodeTemplate?: string;
   selectedMemberLinkCount?: number;
+  canCreateEsiLag?: boolean;
 }
 
 export default function ContextMenu({
@@ -51,12 +53,14 @@ export default function ContextMenu({
   onDeleteSimNode,
   onChangeNodeTemplate,
   onCreateLag,
+  onCreateEsiLag,
   onClearAll,
   hasSelection,
   hasContent,
   nodeTemplates = [],
   currentNodeTemplate,
   selectedMemberLinkCount = 0,
+  canCreateEsiLag = false,
 }: ContextMenuProps) {
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const [showSubmenu, setShowSubmenu] = useState(false);
@@ -154,10 +158,20 @@ export default function ContextMenu({
                 </>
               )}
 
-              {hasSelection === 'edge' && onDeleteEdge && (
+              {hasSelection === 'multiEdge' && canCreateEsiLag && onCreateEsiLag && (
+                <>
+                  <MenuItem onClick={() => { onCreateEsiLag(); onClose(); }}>
+                    <ListItemIcon><MergeIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Create ESI LAG</ListItemText>
+                  </MenuItem>
+                  <Divider />
+                </>
+              )}
+
+              {(hasSelection === 'edge' || hasSelection === 'multiEdge') && onDeleteEdge && (
                 <MenuItem onClick={() => { onDeleteEdge(); onClose(); }}>
                   <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-                  <ListItemText>Delete Link</ListItemText>
+                  <ListItemText>Delete Link{hasSelection === 'multiEdge' ? 's' : ''}</ListItemText>
                 </MenuItem>
               )}
 

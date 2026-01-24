@@ -97,12 +97,14 @@ interface TopologyActions {
 
   // Selection actions
   selectNode: (id: string | null) => void;
-  selectEdge: (id: string | null) => void;
+  selectEdge: (id: string | null, addToSelection?: boolean) => void;
   selectSimNode: (name: string | null) => void;
   selectMemberLink: (edgeId: string, index: number | null, addToSelection?: boolean) => void;
   clearMemberLinkSelection: () => void;
+  clearEdgeSelection: () => void;
 
   createLagFromMemberLinks: (edgeId: string, memberLinkIndices: number[]) => void;
+  createMultihomedLag: (edgeId1: string, edgeId2: string, additionalEdgeIds?: string[]) => void;
   addLinkToLag: (edgeId: string, lagId: string) => void;
   removeLinkFromLag: (edgeId: string, lagId: string, memberLinkIndex: number) => void;
 
@@ -184,6 +186,7 @@ const initialState: TopologyState = {
   },
   selectedNodeId: null,
   selectedEdgeId: null,
+  selectedEdgeIds: [],
   selectedSimNodeName: null,
   expandedEdges: new Set<string>(),
   selectedMemberLinkIndices: [],
@@ -318,12 +321,25 @@ export const useTopologyStore = create<TopologyStore>()(
         const sourceNode = nodes.find(n => n.id === connection.source)?.data.name || connection.source!;
         const targetNode = nodes.find(n => n.id === connection.target)?.data.name || connection.target!;
 
-        const existingEdge = edges.find(e =>
-          ((e.source === connection.source && e.target === connection.target) ||
-           (e.source === connection.target && e.target === connection.source)) &&
-          e.sourceHandle === connection.sourceHandle &&
-          e.targetHandle === connection.targetHandle
-        );
+        const handlesMatch = (edge: Edge<TopologyEdgeData>, conn: Connection, reversed: boolean) => {
+          if (!reversed) {
+            return edge.sourceHandle === conn.sourceHandle && edge.targetHandle === conn.targetHandle;
+          }
+          const connTargetAsSource = conn.targetHandle?.replace('-target', '') || null;
+          const connSourceAsTarget = conn.sourceHandle ? `${conn.sourceHandle}-target` : null;
+          return edge.sourceHandle === connTargetAsSource && edge.targetHandle === connSourceAsTarget;
+        };
+
+        const existingEdge = edges.find(e => {
+          if (e.data?.isMultihomed) return false; // Don't add member links to ESI LAG edges
+
+          const sameDirection = e.source === connection.source && e.target === connection.target;
+          const reversedDirection = e.source === connection.target && e.target === connection.source;
+
+          if (sameDirection) return handlesMatch(e, connection, false);
+          if (reversedDirection) return handlesMatch(e, connection, true);
+          return false;
+        });
 
         // Find highest port number used by source node
         const sourcePortNumbers = edges.flatMap(e => {
@@ -502,12 +518,15 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       onEdgesChange: (changes: EdgeChange<Edge<TopologyEdgeData>>[]) => {
-        set({
-          edges: applyEdgeChanges(changes, get().edges),
-        });
-        // Trigger YAML refresh if any edges were removed
-        if (changes.some(c => c.type === 'remove')) {
-          get().triggerYamlRefresh();
+        const nonSelectChanges = changes.filter(c => c.type !== 'select');
+        if (nonSelectChanges.length > 0) {
+          set({
+            edges: applyEdgeChanges(nonSelectChanges, get().edges),
+          });
+          // Trigger YAML refresh if any edges were removed
+          if (nonSelectChanges.some(c => c.type === 'remove')) {
+            get().triggerYamlRefresh();
+          }
         }
       },
 
@@ -727,14 +746,50 @@ export const useTopologyStore = create<TopologyStore>()(
         set({ selectedNodeId: id, selectedEdgeId: null, selectedSimNodeName: null });
       },
 
-      selectEdge: (id: string | null) => {
+      selectEdge: (id: string | null, addToSelection?: boolean) => {
+        const currentIds = get().selectedEdgeIds;
+
+        if (id === null) {
+          set({
+            selectedEdgeId: null,
+            selectedEdgeIds: [],
+            selectedNodeId: null,
+            selectedSimNodeName: null,
+            selectedMemberLinkIndices: [],
+            edges: get().edges.map(e => ({ ...e, selected: false })),
+            nodes: get().nodes.map(n => ({ ...n, selected: false })),
+          });
+          return;
+        }
+
+        let newIds: string[];
+        if (addToSelection) {
+          if (currentIds.includes(id)) {
+            newIds = currentIds.filter(i => i !== id);
+          } else {
+            newIds = [...currentIds, id];
+          }
+        } else {
+          newIds = [id];
+        }
+
         set({
-          selectedEdgeId: id,
+          selectedEdgeId: newIds.length === 1 ? newIds[0] : (newIds.length > 0 ? newIds[newIds.length - 1] : null),
+          selectedEdgeIds: newIds,
           selectedNodeId: null,
           selectedSimNodeName: null,
           selectedMemberLinkIndices: [],
-          edges: get().edges.map(e => ({ ...e, selected: e.id === id })),
+          edges: get().edges.map(e => ({ ...e, selected: newIds.includes(e.id) })),
           nodes: get().nodes.map(n => ({ ...n, selected: false })),
+        });
+      },
+
+      clearEdgeSelection: () => {
+        set({
+          selectedEdgeId: null,
+          selectedEdgeIds: [],
+          selectedMemberLinkIndices: [],
+          edges: get().edges.map(e => ({ ...e, selected: false })),
         });
       },
 
@@ -813,7 +868,7 @@ export const useTopologyStore = create<TopologyStore>()(
         const lagGroupCount = existingLagGroups.length + 1;
         const newLagGroup = {
           id: `lag-${edgeId}-${lagGroupCount}`,
-          name: `${sourceEdge.data.sourceNode}-${sourceEdge.data.targetNode}-lag${lagGroupCount > 1 ? lagGroupCount : ''}`,
+          name: `${sourceEdge.data.targetNode}-${sourceEdge.data.sourceNode}-lag-${lagGroupCount}`,
           template: 'isl',
           memberLinkIndices: validIndices,
         };
@@ -937,6 +992,130 @@ export const useTopologyStore = create<TopologyStore>()(
         get().triggerYamlRefresh();
       },
 
+      createMultihomedLag: (edgeId1: string, edgeId2: string, additionalEdgeIds?: string[]) => {
+        const edges = get().edges;
+        const nodes = get().nodes;
+        const simNodes = get().simulation.simNodes || [];
+
+        const allEdgeIds = [edgeId1, edgeId2, ...(additionalEdgeIds || [])];
+        const selectedEdges = allEdgeIds
+          .map(id => edges.find(e => e.id === id))
+          .filter((e): e is Edge<TopologyEdgeData> => e !== undefined && e.data !== undefined);
+
+        if (selectedEdges.length < 2 || selectedEdges.length > 4) {
+          get().setError('ESI LAG requires 2-4 edges');
+          return;
+        }
+
+        const findNodeById = (id: string) => {
+          const topoNode = nodes.find(n => n.id === id);
+          if (topoNode) return { id, name: topoNode.data.name, isSimNode: false };
+          const simNode = simNodes.find(s => s.id === id);
+          if (simNode) return { id, name: simNode.name, isSimNode: true };
+          return null;
+        };
+
+        const allNodes = selectedEdges.flatMap(e => [e.source, e.target]);
+        const nodeCounts = new Map<string, number>();
+        allNodes.forEach(n => nodeCounts.set(n, (nodeCounts.get(n) || 0) + 1));
+
+        const commonNodeEntries = [...nodeCounts.entries()].filter(([_, count]) => count === selectedEdges.length);
+        if (commonNodeEntries.length !== 1) {
+          get().setError('Selected edges must all share exactly one common node');
+          return;
+        }
+
+        const commonNodeId = commonNodeEntries[0][0];
+        const commonNodeInfo = findNodeById(commonNodeId);
+        if (!commonNodeInfo) {
+          get().setError('Could not find common node');
+          return;
+        }
+
+        const toSourceHandle = (handle: string | null | undefined): string => {
+          if (!handle) return 'bottom';
+          return handle.replace('-target', '');
+        };
+        const toTargetHandle = (handle: string | null | undefined): string => {
+          if (!handle) return 'bottom-target';
+          if (handle.endsWith('-target')) return handle;
+          return handle + '-target';
+        };
+
+        const leafConnections: Array<{
+          nodeId: string;
+          nodeName: string;
+          leafHandle: string;
+          sourceHandle: string;
+          memberLinks: MemberLink[];
+        }> = [];
+
+        for (const edge of selectedEdges) {
+          const leafId = edge.source === commonNodeId ? edge.target : edge.source;
+          const leafInfo = findNodeById(leafId);
+          if (!leafInfo) {
+            get().setError('Could not find all leaf nodes');
+            return;
+          }
+
+          const sourceHandle = edge.source === commonNodeId
+            ? (edge.sourceHandle || 'bottom')
+            : toSourceHandle(edge.targetHandle);
+          const leafHandle = edge.source === commonNodeId
+            ? (edge.targetHandle || 'bottom-target')
+            : toTargetHandle(edge.sourceHandle);
+
+          leafConnections.push({
+            nodeId: leafId,
+            nodeName: leafInfo.name,
+            leafHandle,
+            sourceHandle,
+            memberLinks: edge.data?.memberLinks || [],
+          });
+        }
+
+        const firstLeaf = leafConnections[0];
+
+        const allMemberLinks = leafConnections.flatMap(lc => lc.memberLinks);
+
+        const newEdgeId = `edge-${++edgeIdCounter}`;
+
+        const esiLeaves = leafConnections.map(lc => ({
+          nodeId: lc.nodeId,
+          nodeName: lc.nodeName,
+          leafHandle: lc.leafHandle,
+          sourceHandle: lc.sourceHandle,
+        }));
+
+        const newEdge: Edge<TopologyEdgeData> = {
+          id: newEdgeId,
+          source: commonNodeId,
+          target: firstLeaf.nodeId,
+          sourceHandle: firstLeaf.sourceHandle,
+          targetHandle: firstLeaf.leafHandle,
+          type: 'linkEdge',
+          data: {
+            id: newEdgeId,
+            sourceNode: commonNodeInfo.name,
+            targetNode: firstLeaf.nodeName,
+            memberLinks: allMemberLinks,
+            isMultihomed: true,
+            esiLeaves,
+          },
+        };
+
+        const edgeIdsToRemove = new Set(allEdgeIds);
+        const filteredEdges = edges.filter(e => !edgeIdsToRemove.has(e.id));
+
+        set({
+          edges: [...filteredEdges, newEdge],
+          selectedEdgeId: newEdgeId,
+          selectedEdgeIds: [newEdgeId],
+          selectedMemberLinkIndices: [],
+        });
+        get().triggerYamlRefresh();
+      },
+
       selectSimNode: (name: string | null) => {
         set({ selectedSimNodeName: name, selectedNodeId: null, selectedEdgeId: null });
       },
@@ -1034,7 +1213,7 @@ export const useTopologyStore = create<TopologyStore>()(
             // Update member link names
             const memberLinks = edge.data?.memberLinks?.map((link) => ({
               ...link,
-              name: `${newSourceName}-${newTargetName}-${link.name.split('-').pop() || '1'}`,
+              name: `${newTargetName}-${newSourceName}-${link.name.split('-').pop() || '1'}`,
             }));
 
             return {
@@ -1186,9 +1365,65 @@ export const useTopologyStore = create<TopologyStore>()(
               }
               const edgesByPair = new Map<string, EdgeData>();
 
+              const esiLagEdges: Edge<TopologyEdgeData>[] = [];
+
               for (const link of parsed.spec.links) {
                 const endpoints = link.endpoints || [];
                 if (endpoints.length === 0) continue;
+
+                const isEsiLag = endpoints.length >= 3 &&
+                  endpoints.every(ep => ep.local?.node && !ep.remote?.node);
+
+                if (isEsiLag) {
+                  const nodeInfoList: Array<{ name: string; interface: string }> = [];
+                  for (const ep of endpoints) {
+                    if (ep.local?.node) {
+                      nodeInfoList.push({
+                        name: ep.local.node,
+                        interface: ep.local.interface || 'ethernet-1-1',
+                      });
+                    }
+                  }
+
+                  if (nodeInfoList.length >= 2 && nodeInfoList.every(n => nameToNewId.has(n.name))) {
+                    const sourceNode = nodeInfoList[0];
+                    const leafNodes = nodeInfoList.slice(1);
+
+                    const edgeId = `edge-${edgeIdCounter++}`;
+                    const firstLeaf = leafNodes[0];
+
+                    const esiLeaves = leafNodes.map(leaf => ({
+                      nodeId: nameToNewId.get(leaf.name)!,
+                      nodeName: leaf.name,
+                      leafHandle: 'top-target',
+                      sourceHandle: 'bottom',
+                    }));
+
+                    const memberLinks = leafNodes.map((leaf, i) => ({
+                      name: `${sourceNode.name}-${leaf.name}-${i + 1}`,
+                      sourceInterface: sourceNode.interface,
+                      targetInterface: leaf.interface,
+                    }));
+
+                    esiLagEdges.push({
+                      id: edgeId,
+                      type: 'linkEdge',
+                      source: nameToNewId.get(sourceNode.name)!,
+                      target: nameToNewId.get(firstLeaf.name)!,
+                      sourceHandle: 'bottom',
+                      targetHandle: 'top-target',
+                      data: {
+                        id: edgeId,
+                        sourceNode: sourceNode.name,
+                        targetNode: firstLeaf.name,
+                        isMultihomed: true,
+                        esiLeaves,
+                        memberLinks,
+                      },
+                    });
+                  }
+                  continue;
+                }
 
                 const firstEndpoint = endpoints[0];
                 const hasRemote = firstEndpoint?.remote?.node;
@@ -1280,7 +1515,7 @@ export const useTopologyStore = create<TopologyStore>()(
                 });
               }
 
-              updates.edges = newEdges;
+              updates.edges = [...newEdges, ...esiLagEdges];
             }
           }
 
