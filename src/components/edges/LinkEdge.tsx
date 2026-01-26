@@ -37,9 +37,7 @@ export default function LinkEdge({
   const isSelected = selected ?? false;
 
 
-  // Event handlers
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDoubleClick = () => {
     if (linkCount > 1) {
       toggleEdgeExpanded(id);
     }
@@ -112,7 +110,6 @@ export default function LinkEdge({
   if (isExpanded && linkCount > 0) {
     return (
       <ExpandedBundleEdge
-        id={id}
         sourceX={sourceX}
         sourceY={sourceY}
         targetX={targetX}
@@ -135,7 +132,6 @@ export default function LinkEdge({
 
   return (
     <StandardEdge
-      id={id}
       sourceX={sourceX}
       sourceY={sourceY}
       targetX={targetX}

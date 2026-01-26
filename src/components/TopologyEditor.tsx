@@ -168,12 +168,14 @@ function TopologyEditorInner() {
     addNode,
     deleteNode,
     deleteEdge,
+    addMemberLink,
     addSimNode,
     deleteSimNode,
     simulation,
     showSimNodes,
     setShowSimNodes,
     expandedEdges,
+    toggleEdgeExpanded,
     toggleAllEdgesExpanded,
     updateSimNodePosition,
     clearAll,
@@ -211,6 +213,10 @@ function TopologyEditorInner() {
     nodes: Node<TopologyNodeData>[];
     edges: Edge<TopologyEdgeData>[];
     simNodes: typeof simulation.simNodes;
+    copiedLink?: {
+      edgeId: string;
+      template?: string;
+    };
   }>({ nodes: [], edges: [], simNodes: [] });
 
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -343,15 +349,91 @@ function TopologyEditorInner() {
       if (isCtrlOrCmd && e.key === 'c') {
         const currentState = useTopologyStore.getState();
         const selectedTopoNodes = currentState.nodes.filter(n => n.selected);
-        const selectedEdges = currentState.edges.filter(e => e.selected);
         const selectedSimNodesList = currentState.simulation.simNodes.filter(sn => currentState.selectedSimNodeNames.has(sn.name));
+
+        if (currentState.selectedEdgeIds.length === 1 && selectedTopoNodes.length === 0 && selectedSimNodesList.length === 0) {
+          const edge = currentState.edges.find(e => e.id === currentState.selectedEdgeIds[0]);
+          if (edge) {
+            const memberLinks = edge.data?.memberLinks || [];
+            if (memberLinks.length === 1 && !edge.data?.isMultihomed) {
+              clipboardRef.current = {
+                nodes: [],
+                edges: [],
+                simNodes: [],
+                copiedLink: {
+                  edgeId: edge.id,
+                  template: memberLinks[0].template,
+                },
+              };
+              return;
+            }
+          }
+        }
+
+        const selectedEdges = currentState.edges.filter(e => e.selected);
         if (selectedTopoNodes.length > 0 || selectedSimNodesList.length > 0) {
-          clipboardRef.current = { nodes: selectedTopoNodes, edges: selectedEdges, simNodes: selectedSimNodesList };
+          clipboardRef.current = { nodes: selectedTopoNodes, edges: selectedEdges, simNodes: selectedSimNodesList, copiedLink: undefined };
         }
       }
 
       if (isCtrlOrCmd && e.key === 'v') {
-        const { nodes: copiedNodes, edges: copiedEdges, simNodes: copiedSimNodes } = clipboardRef.current;
+        const { nodes: copiedNodes, edges: copiedEdges, simNodes: copiedSimNodes, copiedLink } = clipboardRef.current;
+
+        if (copiedLink) {
+          e.preventDefault();
+          const currentState = useTopologyStore.getState();
+          const edge = currentState.edges.find(e => e.id === copiedLink.edgeId);
+          if (edge && edge.data) {
+            const sourceIsSimNode = edge.source.startsWith('sim-');
+            const targetIsSimNode = edge.target.startsWith('sim-');
+
+            const extractPortNumber = (iface: string): number => {
+              const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
+              if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
+              const ethMatch = iface.match(/eth(\d+)/);
+              if (ethMatch) return parseInt(ethMatch[1], 10);
+              return 0;
+            };
+
+            const sourcePortNumbers = currentState.edges.flatMap(e => {
+              if (e.source === edge.source) {
+                return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
+              }
+              if (e.target === edge.source) {
+                return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
+              }
+              return [];
+            });
+            const nextSourcePort = Math.max(0, ...sourcePortNumbers) + 1;
+
+            const targetPortNumbers = currentState.edges.flatMap(e => {
+              if (e.source === edge.target) {
+                return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
+              }
+              if (e.target === edge.target) {
+                return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
+              }
+              return [];
+            });
+            const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
+
+            const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
+            const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
+
+            const memberLinks = edge.data.memberLinks || [];
+            const nextLinkNumber = memberLinks.length + 1;
+
+            addMemberLink(edge.id, {
+              name: `${edge.data.targetNode}-${edge.data.sourceNode}-${nextLinkNumber}`,
+              template: copiedLink.template,
+              sourceInterface,
+              targetInterface,
+            });
+            triggerYamlRefresh();
+          }
+          return;
+        }
+
         if (copiedNodes.length > 0 || copiedSimNodes.length > 0) {
           e.preventDefault();
 
@@ -420,7 +502,7 @@ function TopologyEditorInner() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pasteSelection, addSimNode, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh, selectSimNodes]);
+  }, [pasteSelection, addSimNode, addMemberLink, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh, selectSimNodes]);
 
   const handlePaneClick = useCallback(() => {
     selectNode(null);
@@ -474,6 +556,13 @@ function TopologyEditorInner() {
       jumpToLinkInEditor(edge.data.sourceNode, edge.data.targetNode);
     }
   }, [selectEdge, activeTab]);
+
+  const handleEdgeDoubleClick = useCallback((_event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
+    const linkCount = edge.data?.memberLinks?.length || 0;
+    if (linkCount > 1) {
+      toggleEdgeExpanded(edge.id);
+    }
+  }, [toggleEdgeExpanded]);
 
   const handlePaneContextMenu = useCallback((event: MouseEvent | React.MouseEvent) => {
     event.preventDefault();
@@ -610,6 +699,7 @@ function TopologyEditorInner() {
             onPaneClick={handlePaneClick}
             onNodeClick={handleNodeClick}
             onEdgeClick={handleEdgeClick}
+            onEdgeDoubleClick={handleEdgeDoubleClick}
             onPaneContextMenu={handlePaneContextMenu}
             onNodeContextMenu={handleNodeContextMenu}
             onEdgeContextMenu={handleEdgeContextMenu}

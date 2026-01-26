@@ -4,7 +4,6 @@ import { createFannedBezierPath, calculateLinkOffsets } from './edgeUtils';
 import type { MemberLink, LagGroup } from '../../types/topology';
 
 interface ExpandedBundleEdgeProps {
-  id: string;
   sourceX: number;
   sourceY: number;
   targetX: number;
@@ -16,7 +15,7 @@ interface ExpandedBundleEdgeProps {
   memberLinks: MemberLink[];
   lagGroups: LagGroup[];
   selectedMemberLinkIndices: number[];
-  onDoubleClick: (e: React.MouseEvent) => void;
+  onDoubleClick?: () => void;
   onMemberLinkClick: (e: React.MouseEvent, index: number) => void;
   onMemberLinkContextMenu: (e: React.MouseEvent, index: number) => void;
   onLagClick: (e: React.MouseEvent, lagIndices: number[]) => void;
@@ -24,7 +23,6 @@ interface ExpandedBundleEdgeProps {
 }
 
 export default function ExpandedBundleEdge({
-  id,
   sourceX,
   sourceY,
   targetX,
@@ -64,8 +62,14 @@ export default function ExpandedBundleEdge({
 
   const offsets = calculateLinkOffsets(visualItems.length);
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onDoubleClick?.();
+  };
+
   return (
-    <g onDoubleClick={onDoubleClick}>
+    <g>
       {visualItems.map((item, visualIndex) => {
         const offset = offsets[visualIndex];
         const { path: curvePath, midpoint: curveMidpoint } = createFannedBezierPath(
@@ -79,18 +83,23 @@ export default function ExpandedBundleEdge({
           return (
             <g
               key={`link-${item.index}`}
-              onClick={(e) => onMemberLinkClick(e, item.index)}
-              onContextMenu={(e) => onMemberLinkContextMenu(e, item.index)}
+              onDoubleClick={handleDoubleClick}
               style={{ cursor: 'pointer' }}
             >
-              <path d={curvePath} fill="none" stroke="transparent" strokeWidth={12} />
+              <path
+                d={curvePath}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={20}
+                onClick={(e) => onMemberLinkClick(e, item.index)}
+                onContextMenu={(e) => onMemberLinkContextMenu(e, item.index)}
+              />
               <path
                 d={curvePath}
                 fill="none"
                 stroke={isSelectedMemberLink ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
                 strokeWidth={1}
-                className={isSimNodeEdge ? 'sim-edge' : ''}
-                style={isSimNodeEdge ? { strokeDasharray: '5 5' } : undefined}
+                strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
               />
             </g>
           );
@@ -101,18 +110,23 @@ export default function ExpandedBundleEdge({
           return (
             <g key={`lag-${item.lag.id}`}>
               <g
-                onClick={(e) => onLagClick(e, lagIndices)}
-                onContextMenu={() => onLagContextMenu(lagIndices)}
+                onDoubleClick={handleDoubleClick}
                 style={{ cursor: 'pointer' }}
               >
-                <path d={curvePath} fill="none" stroke="transparent" strokeWidth={12} />
+                <path
+                  d={curvePath}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth={20}
+                  onClick={(e) => onLagClick(e, lagIndices)}
+                  onContextMenu={() => onLagContextMenu(lagIndices)}
+                />
                 <path
                   d={curvePath}
                   fill="none"
                   stroke={isLagSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
                   strokeWidth={1}
-                  className={isSimNodeEdge ? 'sim-edge' : ''}
-                  style={isSimNodeEdge ? { strokeDasharray: '5 5' } : undefined}
+                  strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
                 />
               </g>
               <EdgeLabelRenderer>

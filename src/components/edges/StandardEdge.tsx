@@ -1,10 +1,9 @@
-import { getBezierPath, BaseEdge, EdgeLabelRenderer, Position } from '@xyflow/react';
+import { getBezierPath, EdgeLabelRenderer, Position } from '@xyflow/react';
 import { Bezier } from 'bezier-js';
 import { Chip } from '@mui/material';
 import { getControlPoint } from './edgeUtils';
 
 interface StandardEdgeProps {
-  id: string;
   sourceX: number;
   sourceY: number;
   targetX: number;
@@ -14,11 +13,10 @@ interface StandardEdgeProps {
   isSelected: boolean;
   isSimNodeEdge: boolean;
   linkCount: number;
-  onDoubleClick: (e: React.MouseEvent) => void;
+  onDoubleClick?: () => void;
 }
 
 export default function StandardEdge({
-  id,
   sourceX,
   sourceY,
   targetX,
@@ -61,19 +59,30 @@ export default function StandardEdge({
     edgeMidpoint = { x: labelX, y: labelY };
   }
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onDoubleClick?.();
+  };
+
   return (
     <>
-      <g onDoubleClick={onDoubleClick}>
-        <BaseEdge
-          id={id}
-          path={edgePath}
-          className={isSimNodeEdge ? 'sim-edge' : ''}
-          interactionWidth={20}
-          style={{
-            stroke: isSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)',
-            strokeWidth: 1,
-            ...(isSimNodeEdge && { strokeDasharray: '5 5' }),
-          }}
+      <g
+        onDoubleClick={handleDoubleClick}
+        style={{ cursor: linkCount > 1 ? 'pointer' : 'default' }}
+      >
+        <path
+          d={edgePath}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={20}
+        />
+        <path
+          d={edgePath}
+          fill="none"
+          stroke={isSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
+          strokeWidth={1}
+          strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
         />
       </g>
       {linkCount > 1 && (
@@ -84,12 +93,12 @@ export default function StandardEdge({
               transform: `translate(-50%, -50%) translate(${edgeMidpoint.x}px, ${edgeMidpoint.y}px)`,
               pointerEvents: 'all',
             }}
-            onDoubleClick={onDoubleClick}
+            onClick={(e) => { e.stopPropagation(); onDoubleClick?.(); }}
           >
             <Chip
               label={linkCount}
               size="small"
-              title={`${linkCount} links - double-click to expand`}
+              title={`${linkCount} links - click to expand`}
               sx={{
                 height: '14px',
                 minWidth: '14px',

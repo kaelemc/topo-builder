@@ -151,6 +151,9 @@ const generateNodeId = () => `node-${nodeIdCounter++}`;
 const generateEdgeId = () => `edge-${edgeIdCounter++}`;
 const generateSimNodeId = () => `sim-${simNodeIdCounter++}`;
 
+// Stable empty Set to avoid unnecessary re-renders
+const EMPTY_STRING_SET: Set<string> = new Set<string>();
+
 // Parse base template from YAML file
 function parseBaseTemplate(): Partial<TopologyState> {
   try {
@@ -191,7 +194,7 @@ const initialState: TopologyState = {
   selectedEdgeId: null,
   selectedEdgeIds: [],
   selectedSimNodeName: null,
-  selectedSimNodeNames: new Set<string>(),
+  selectedSimNodeNames: EMPTY_STRING_SET,
   expandedEdges: new Set<string>(),
   selectedMemberLinkIndices: [],
   yamlRefreshCounter: 0,
@@ -773,7 +776,7 @@ export const useTopologyStore = create<TopologyStore>()(
             selectedEdgeId: null,
             selectedEdgeIds: [],
             selectedSimNodeName: null,
-            selectedSimNodeNames: new Set<string>(),
+            selectedSimNodeNames: EMPTY_STRING_SET,
             selectedMemberLinkIndices: [],
             nodes: get().nodes.map(n => ({ ...n, selected: false })),
             edges: get().edges.map(e => ({ ...e, selected: false })),
@@ -789,7 +792,7 @@ export const useTopologyStore = create<TopologyStore>()(
             selectedEdgeId: null,
             selectedEdgeIds: [],
             selectedSimNodeName: null,
-            selectedSimNodeNames: new Set<string>(),
+            selectedSimNodeNames: EMPTY_STRING_SET,
             selectedMemberLinkIndices: [],
             nodes: get().nodes.map(n =>
               n.id === id ? { ...n, selected: !isCurrentlySelected } : n
@@ -802,7 +805,7 @@ export const useTopologyStore = create<TopologyStore>()(
             selectedEdgeId: null,
             selectedEdgeIds: [],
             selectedSimNodeName: null,
-            selectedSimNodeNames: new Set<string>(),
+            selectedSimNodeNames: EMPTY_STRING_SET,
             selectedMemberLinkIndices: [],
             nodes: get().nodes.map(n => ({ ...n, selected: n.id === id })),
             edges: get().edges.map(e => ({ ...e, selected: false })),
@@ -819,7 +822,7 @@ export const useTopologyStore = create<TopologyStore>()(
             selectedEdgeIds: [],
             selectedNodeId: null,
             selectedSimNodeName: null,
-            selectedSimNodeNames: new Set<string>(),
+            selectedSimNodeNames: EMPTY_STRING_SET,
             selectedMemberLinkIndices: [],
             edges: get().edges.map(e => ({ ...e, selected: false })),
             nodes: get().nodes.map(n => ({ ...n, selected: false })),
@@ -843,7 +846,7 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedEdgeIds: newIds,
           selectedNodeId: null,
           selectedSimNodeName: null,
-          selectedSimNodeNames: new Set<string>(),
+          selectedSimNodeNames: EMPTY_STRING_SET,
           selectedMemberLinkIndices: [],
           edges: get().edges.map(e => ({ ...e, selected: newIds.includes(e.id) })),
           nodes: get().nodes.map(n => ({ ...n, selected: false })),
@@ -880,7 +883,7 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedEdgeId: edgeId,
           selectedNodeId: null,
           selectedSimNodeName: null,
-          selectedSimNodeNames: new Set<string>(),
+          selectedSimNodeNames: EMPTY_STRING_SET,
           selectedMemberLinkIndices: newIndices,
           edges: get().edges.map(e => ({ ...e, selected: e.id === edgeId })),
           nodes: get().nodes.map(n => ({ ...n, selected: false })),
