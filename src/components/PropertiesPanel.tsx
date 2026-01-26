@@ -353,7 +353,7 @@ export function SelectionPanel() {
                 </Button>
               </Box>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                {lagMemberLinksWithIndices.map(({ link, index }) => (
+                {lagMemberLinksWithIndices.map(({ link, index }, listIndex) => (
                   <Paper
                     key={index}
                     variant="outlined"
@@ -374,6 +374,7 @@ export function SelectionPanel() {
                         onChange={(e) =>
                           handleUpdateLink(index, { targetInterface: e.target.value })
                         }
+                        inputProps={{ tabIndex: listIndex * 2 + 1 }}
                         fullWidth
                       />
                       <TextField
@@ -383,6 +384,7 @@ export function SelectionPanel() {
                         onChange={(e) =>
                           handleUpdateLink(index, { sourceInterface: e.target.value })
                         }
+                        inputProps={{ tabIndex: listIndex * 2 + 2 }}
                         fullWidth
                       />
                       <IconButton
@@ -501,6 +503,7 @@ export function SelectionPanel() {
                           onChange={(e) =>
                             handleUpdateLink(index, { targetInterface: e.target.value })
                           }
+                          inputProps={{ tabIndex: index * 2 + 1 }}
                           fullWidth
                         />
                         <TextField
@@ -510,6 +513,7 @@ export function SelectionPanel() {
                           onChange={(e) =>
                             handleUpdateLink(index, { sourceInterface: e.target.value })
                           }
+                          inputProps={{ tabIndex: index * 2 + 2 }}
                           fullWidth
                         />
                         <IconButton
@@ -592,43 +596,10 @@ export function SelectionPanel() {
                 <Box
                   sx={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 1,
-                    mb: 1,
-                  }}
-                >
-                  <TextField
-                    label={`${nodeA} Interface`}
-                    size="small"
-                    value={link.targetInterface}
-                    onChange={(e) =>
-                      handleUpdateLink(index, {
-                        targetInterface: e.target.value,
-                      })
-                    }
-                    inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
-                    fullWidth
-                  />
-                  <TextField
-                    label={`${nodeB} Interface`}
-                    size="small"
-                    value={link.sourceInterface}
-                    onChange={(e) =>
-                      handleUpdateLink(index, {
-                        sourceInterface: e.target.value,
-                      })
-                    }
-                    inputRef={listIndex === 0 ? targetInterfaceRef : undefined}
-                    fullWidth
-                  />
-                </Box>
-
-                <Box
-                  sx={{
-                    display: "grid",
                     gridTemplateColumns: "1fr auto",
                     gap: 1,
                     alignItems: "center",
+                    mb: 1,
                   }}
                 >
                   <TextField
@@ -648,7 +619,43 @@ export function SelectionPanel() {
                   </IconButton>
                 </Box>
 
-                <FormControl size="small" fullWidth sx={{ mt: 1 }}>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 1,
+                    mb: 1,
+                  }}
+                >
+                  <TextField
+                    label={`${nodeA} Interface`}
+                    size="small"
+                    value={link.targetInterface}
+                    onChange={(e) =>
+                      handleUpdateLink(index, {
+                        targetInterface: e.target.value,
+                      })
+                    }
+                    inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
+                    inputProps={{ tabIndex: 1 }}
+                    fullWidth
+                  />
+                  <TextField
+                    label={`${nodeB} Interface`}
+                    size="small"
+                    value={link.sourceInterface}
+                    onChange={(e) =>
+                      handleUpdateLink(index, {
+                        sourceInterface: e.target.value,
+                      })
+                    }
+                    inputRef={listIndex === 0 ? targetInterfaceRef : undefined}
+                    inputProps={{ tabIndex: 2 }}
+                    fullWidth
+                  />
+                </Box>
+
+                <FormControl size="small" fullWidth>
                   <InputLabel>Template</InputLabel>
                   <Select
                     label="Template"
