@@ -23,8 +23,10 @@ export default function LinkEdge({
 
   const expandedEdges = useTopologyStore((state) => state.expandedEdges);
   const selectedMemberLinkIndices = useTopologyStore((state) => state.selectedMemberLinkIndices);
+  const selectedLagId = useTopologyStore((state) => state.selectedLagId);
   const toggleEdgeExpanded = useTopologyStore((state) => state.toggleEdgeExpanded);
   const selectMemberLink = useTopologyStore((state) => state.selectMemberLink);
+  const selectLag = useTopologyStore((state) => state.selectLag);
   const nodes = useTopologyStore((state) => state.nodes);
   const simNodes = useTopologyStore((state) => state.simulation.simNodes);
 
@@ -54,15 +56,14 @@ export default function LinkEdge({
     }
   };
 
-  const handleLagClick = (e: React.MouseEvent, lagIndices: number[]) => {
+  const handleLagClick = (e: React.MouseEvent, lagId: string) => {
     e.stopPropagation();
-    lagIndices.forEach((idx, i) => selectMemberLink(id, idx, i > 0 || e.shiftKey));
+    selectLag(id, lagId);
   };
 
-  const handleLagContextMenu = (lagIndices: number[]) => {
-    const allSelected = lagIndices.every(idx => selectedMemberLinkIndices.includes(idx));
-    if (!allSelected) {
-      lagIndices.forEach((idx) => selectMemberLink(id, idx, true));
+  const handleLagContextMenu = (lagId: string) => {
+    if (selectedLagId !== lagId) {
+      selectLag(id, lagId);
     }
   };
 
@@ -121,6 +122,7 @@ export default function LinkEdge({
         memberLinks={memberLinks}
         lagGroups={lagGroups}
         selectedMemberLinkIndices={selectedMemberLinkIndices}
+        selectedLagId={selectedLagId}
         onDoubleClick={handleDoubleClick}
         onMemberLinkClick={handleMemberLinkClick}
         onMemberLinkContextMenu={handleMemberLinkContextMenu}

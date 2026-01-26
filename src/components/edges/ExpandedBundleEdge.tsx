@@ -15,11 +15,12 @@ interface ExpandedBundleEdgeProps {
   memberLinks: MemberLink[];
   lagGroups: LagGroup[];
   selectedMemberLinkIndices: number[];
+  selectedLagId: string | null;
   onDoubleClick?: () => void;
   onMemberLinkClick: (e: React.MouseEvent, index: number) => void;
   onMemberLinkContextMenu: (e: React.MouseEvent, index: number) => void;
-  onLagClick: (e: React.MouseEvent, lagIndices: number[]) => void;
-  onLagContextMenu: (lagIndices: number[]) => void;
+  onLagClick: (e: React.MouseEvent, lagId: string) => void;
+  onLagContextMenu: (lagId: string) => void;
 }
 
 export default function ExpandedBundleEdge({
@@ -34,6 +35,7 @@ export default function ExpandedBundleEdge({
   memberLinks,
   lagGroups,
   selectedMemberLinkIndices,
+  selectedLagId,
   onDoubleClick,
   onMemberLinkClick,
   onMemberLinkContextMenu,
@@ -104,8 +106,7 @@ export default function ExpandedBundleEdge({
             </g>
           );
         } else {
-          const lagIndices = item.lag.memberLinkIndices;
-          const isLagSelected = isSelected && lagIndices.some(idx => selectedMemberLinkIndices.includes(idx));
+          const isLagSelected = isSelected && selectedLagId === item.lag.id;
 
           return (
             <g key={`lag-${item.lag.id}`}>
@@ -118,8 +119,8 @@ export default function ExpandedBundleEdge({
                   fill="none"
                   stroke="transparent"
                   strokeWidth={20}
-                  onClick={(e) => onLagClick(e, lagIndices)}
-                  onContextMenu={() => onLagContextMenu(lagIndices)}
+                  onClick={(e) => onLagClick(e, item.lag.id)}
+                  onContextMenu={() => onLagContextMenu(item.lag.id)}
                 />
                 <path
                   d={curvePath}
@@ -140,7 +141,7 @@ export default function ExpandedBundleEdge({
                   <Chip
                     label="LAG"
                     size="small"
-                    title={`Local LAG: ${item.lag.name} (${lagIndices.length} endpoints)`}
+                    title={`Local LAG: ${item.lag.name} (${item.lag.memberLinkIndices.length} endpoints)`}
                     sx={{
                       height: '14px',
                       fontSize: '8px',

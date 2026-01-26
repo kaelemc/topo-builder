@@ -44,6 +44,7 @@ export function SelectionPanel() {
   const selectedMemberLinkIndices = useTopologyStore(
     (state) => state.selectedMemberLinkIndices,
   );
+  const selectedLagId = useTopologyStore((state) => state.selectedLagId);
   const expandedEdges = useTopologyStore((state) => state.expandedEdges);
   const nodes = useTopologyStore((state) => state.nodes);
   const edges = useTopologyStore((state) => state.edges);
@@ -68,6 +69,9 @@ export function SelectionPanel() {
   const prevSelectedNodeIdRef = useRef<string | null>(null);
 
   const linkNameInputRef = useRef<HTMLInputElement>(null);
+  const sourceInterfaceRef = useRef<HTMLInputElement>(null);
+  const targetInterfaceRef = useRef<HTMLInputElement>(null);
+  const prevSelectedEdgeIdRef = useRef<string | null>(null);
 
   // Count selected items
   const selectedNodesCount = nodes.filter((n) => n.selected).length;
@@ -77,7 +81,6 @@ export function SelectionPanel() {
   // Auto-focus and select node name when a new node is selected
   useEffect(() => {
     if (selectedNodeId && selectedNodeId !== prevSelectedNodeIdRef.current) {
-      // Small delay to ensure the input is rendered
       setTimeout(() => {
         if (nodeNameInputRef.current) {
           nodeNameInputRef.current.focus();
@@ -87,6 +90,21 @@ export function SelectionPanel() {
     }
     prevSelectedNodeIdRef.current = selectedNodeId;
   }, [selectedNodeId]);
+
+  // Auto-focus source interface when a new link is created
+  useEffect(() => {
+    const newLinkId = sessionStorage.getItem('topology-new-link-id');
+    if (selectedEdgeId && selectedEdgeId === newLinkId) {
+      setTimeout(() => {
+        if (sourceInterfaceRef.current) {
+          sourceInterfaceRef.current.focus();
+          sourceInterfaceRef.current.select();
+        }
+      }, 100);
+      sessionStorage.removeItem('topology-new-link-id');
+    }
+    prevSelectedEdgeIdRef.current = selectedEdgeId;
+  }, [selectedEdgeId]);
 
   // Don't show properties panel when multiple items are selected
   if (totalSelected > 1) {
@@ -201,7 +219,6 @@ export function SelectionPanel() {
     const edgeData = selectedEdge.data;
     const memberLinks = edgeData.memberLinks || [];
     const lagGroups = edgeData.lagGroups || [];
-    const isNewLink = sessionStorage.getItem('topology-is-new-link') === 'true';
     const isExpanded = expandedEdges.has(selectedEdge.id);
 
     const nodeA = edgeData.targetNode;
@@ -246,11 +263,7 @@ export function SelectionPanel() {
       triggerYamlRefresh();
     };
 
-    const selectedLag = lagGroups.find(lag =>
-      selectedMemberLinkIndices.length > 0 &&
-      selectedMemberLinkIndices.every(idx => lag.memberLinkIndices.includes(idx)) &&
-      lag.memberLinkIndices.every(idx => selectedMemberLinkIndices.includes(idx))
-    );
+    const selectedLag = selectedLagId ? lagGroups.find(lag => lag.id === selectedLagId) : null;
 
     const linksToShow = isExpanded && memberLinks.length > 1
       ? (selectedMemberLinkIndices.length > 0
@@ -389,6 +402,28 @@ export function SelectionPanel() {
       );
     }
 
+    const addMemberLink = useTopologyStore.getState().addMemberLink;
+    const isShowingBundle = !isExpanded || memberLinks.length <= 1;
+
+    const handleAddLink = () => {
+      const lastLink = memberLinks[memberLinks.length - 1];
+      const nextNum = memberLinks.length + 1;
+      const incrementInterface = (iface: string) => {
+        const match = iface.match(/^(.+?)(\d+)$/);
+        if (match) {
+          return `${match[1]}${parseInt(match[2], 10) + 1}`;
+        }
+        return `${iface}-${nextNum}`;
+      };
+      addMemberLink(selectedEdge.id, {
+        name: `${nodeB}-${nodeA}-${nextNum}`,
+        template: lastLink?.template,
+        sourceInterface: incrementInterface(lastLink?.sourceInterface || 'ethernet-1/1'),
+        targetInterface: incrementInterface(lastLink?.targetInterface || 'ethernet-1/1'),
+      });
+      triggerYamlRefresh();
+    };
+
     return (
       <Box>
         <Box
@@ -402,10 +437,10 @@ export function SelectionPanel() {
           <Typography variant="subtitle2" fontWeight={600}>
             {nodeA} ↔ {nodeB}
           </Typography>
-          {memberLinks.length > 1 && (
-            <Typography variant="caption" color="text.secondary">
-              {memberLinks.length} links
-            </Typography>
+          {isShowingBundle && (
+            <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
+              Add
+            </Button>
           )}
         </Box>
 
@@ -419,7 +454,7 @@ export function SelectionPanel() {
           </Typography>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            {linksToShow.map(({ link, index }) => (
+            {linksToShow.map(({ link, index }, listIndex) => (
               <Paper
                 key={index}
                 variant="outlined"
@@ -427,61 +462,12 @@ export function SelectionPanel() {
               >
                 <Box
                   sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 1,
                     mb: 1,
                   }}
                 >
-                  <TextField
-                    label="Link Name"
-                    size="small"
-                    value={link.name}
-                    onChange={(e) =>
-                      handleUpdateLink(index, { name: e.target.value })
-                    }
-                    sx={{ flex: 1, mr: 1 }}
-                    inputRef={index === 0 ? linkNameInputRef : undefined}
-                    autoFocus={index === 0 && isNewLink}
-                    onFocus={(e) => {
-                      if (index === 0 && isNewLink) {
-                        e.target.select();
-                      }
-                    }}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDeleteLink(index)}
-                  >
-                    <DeleteIcon fontSize="small" color="error" />
-                  </IconButton>
-                </Box>
-
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr 1fr",
-                    gap: 1,
-                  }}
-                >
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Template</InputLabel>
-                    <Select
-                      label="Template"
-                      value={link.template || ""}
-                      onChange={(e) =>
-                        handleUpdateLink(index, { template: e.target.value })
-                      }
-                    >
-                      <MenuItem value="">None</MenuItem>
-                      {linkTemplates.map((t) => (
-                        <MenuItem key={t.name} value={t.name}>
-                          {t.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
                   <TextField
                     label={`${nodeA} Interface`}
                     size="small"
@@ -491,9 +477,9 @@ export function SelectionPanel() {
                         targetInterface: e.target.value,
                       })
                     }
+                    inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
                     fullWidth
                   />
-
                   <TextField
                     label={`${nodeB} Interface`}
                     size="small"
@@ -503,9 +489,53 @@ export function SelectionPanel() {
                         sourceInterface: e.target.value,
                       })
                     }
+                    inputRef={listIndex === 0 ? targetInterfaceRef : undefined}
                     fullWidth
                   />
                 </Box>
+
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto",
+                    gap: 1,
+                    alignItems: "center",
+                  }}
+                >
+                  <TextField
+                    label="Link Name"
+                    size="small"
+                    value={link.name}
+                    onChange={(e) =>
+                      handleUpdateLink(index, { name: e.target.value })
+                    }
+                    fullWidth
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => handleDeleteLink(index)}
+                  >
+                    <DeleteIcon fontSize="small" color="error" />
+                  </IconButton>
+                </Box>
+
+                <FormControl size="small" fullWidth sx={{ mt: 1 }}>
+                  <InputLabel>Template</InputLabel>
+                  <Select
+                    label="Template"
+                    value={link.template || ""}
+                    onChange={(e) =>
+                      handleUpdateLink(index, { template: e.target.value })
+                    }
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    {linkTemplates.map((t) => (
+                      <MenuItem key={t.name} value={t.name}>
+                        {t.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Paper>
             ))}
           </Box>

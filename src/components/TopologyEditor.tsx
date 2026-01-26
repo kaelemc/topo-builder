@@ -199,6 +199,15 @@ function TopologyEditorInner() {
   useEffect(() => {
     sessionStorage.setItem('topology-active-tab', activeTab.toString());
   }, [activeTab]);
+
+  useEffect(() => {
+    const newLinkId = sessionStorage.getItem('topology-new-link-id');
+    if (newLinkId && selectedEdgeId === newLinkId) {
+      setActiveTab(1);
+      sessionStorage.removeItem('topology-new-link-id');
+    }
+  }, [selectedEdgeId]);
+
   const [contextMenu, setContextMenu] = useState<{
     open: boolean;
     position: { x: number; y: number };

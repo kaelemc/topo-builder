@@ -103,6 +103,7 @@ interface TopologyActions {
   selectSimNode: (name: string | null) => void;
   selectSimNodes: (names: Set<string>) => void;
   selectMemberLink: (edgeId: string, index: number | null, addToSelection?: boolean) => void;
+  selectLag: (edgeId: string, lagId: string | null) => void;
   clearMemberLinkSelection: () => void;
   clearEdgeSelection: () => void;
 
@@ -197,6 +198,7 @@ const initialState: TopologyState = {
   selectedSimNodeNames: EMPTY_STRING_SET,
   expandedEdges: new Set<string>(),
   selectedMemberLinkIndices: [],
+  selectedLagId: null,
   yamlRefreshCounter: 0,
   layoutVersion: 0,
   darkMode: true,
@@ -467,7 +469,9 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedNodeId: null,
           selectedSimNodeName: null,
           selectedMemberLinkIndices: [],
+          selectedLagId: null,
         });
+        sessionStorage.setItem('topology-new-link-id', id);
         get().triggerYamlRefresh();
       },
 
@@ -778,6 +782,7 @@ export const useTopologyStore = create<TopologyStore>()(
             selectedSimNodeName: null,
             selectedSimNodeNames: EMPTY_STRING_SET,
             selectedMemberLinkIndices: [],
+          selectedLagId: null,
             nodes: get().nodes.map(n => ({ ...n, selected: false })),
             edges: get().edges.map(e => ({ ...e, selected: false })),
           });
@@ -794,6 +799,7 @@ export const useTopologyStore = create<TopologyStore>()(
             selectedSimNodeName: null,
             selectedSimNodeNames: EMPTY_STRING_SET,
             selectedMemberLinkIndices: [],
+          selectedLagId: null,
             nodes: get().nodes.map(n =>
               n.id === id ? { ...n, selected: !isCurrentlySelected } : n
             ),
@@ -807,6 +813,7 @@ export const useTopologyStore = create<TopologyStore>()(
             selectedSimNodeName: null,
             selectedSimNodeNames: EMPTY_STRING_SET,
             selectedMemberLinkIndices: [],
+          selectedLagId: null,
             nodes: get().nodes.map(n => ({ ...n, selected: n.id === id })),
             edges: get().edges.map(e => ({ ...e, selected: false })),
           });
@@ -824,6 +831,7 @@ export const useTopologyStore = create<TopologyStore>()(
             selectedSimNodeName: null,
             selectedSimNodeNames: EMPTY_STRING_SET,
             selectedMemberLinkIndices: [],
+          selectedLagId: null,
             edges: get().edges.map(e => ({ ...e, selected: false })),
             nodes: get().nodes.map(n => ({ ...n, selected: false })),
           });
@@ -848,6 +856,7 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedSimNodeName: null,
           selectedSimNodeNames: EMPTY_STRING_SET,
           selectedMemberLinkIndices: [],
+          selectedLagId: null,
           edges: get().edges.map(e => ({ ...e, selected: newIds.includes(e.id) })),
           nodes: get().nodes.map(n => ({ ...n, selected: false })),
         });
@@ -858,6 +867,7 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedEdgeId: null,
           selectedEdgeIds: [],
           selectedMemberLinkIndices: [],
+          selectedLagId: null,
           edges: get().edges.map(e => ({ ...e, selected: false })),
         });
       },
@@ -885,13 +895,27 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedSimNodeName: null,
           selectedSimNodeNames: EMPTY_STRING_SET,
           selectedMemberLinkIndices: newIndices,
+          selectedLagId: null,
+          edges: get().edges.map(e => ({ ...e, selected: e.id === edgeId })),
+          nodes: get().nodes.map(n => ({ ...n, selected: false })),
+        });
+      },
+
+      selectLag: (edgeId: string, lagId: string | null) => {
+        set({
+          selectedEdgeId: edgeId,
+          selectedNodeId: null,
+          selectedSimNodeName: null,
+          selectedSimNodeNames: EMPTY_STRING_SET,
+          selectedMemberLinkIndices: [],
+          selectedLagId: lagId,
           edges: get().edges.map(e => ({ ...e, selected: e.id === edgeId })),
           nodes: get().nodes.map(n => ({ ...n, selected: false })),
         });
       },
 
       clearMemberLinkSelection: () => {
-        set({ selectedMemberLinkIndices: [] });
+        set({ selectedMemberLinkIndices: [], selectedLagId: null });
       },
 
       toggleEdgeExpanded: (edgeId: string) => {
@@ -959,6 +983,7 @@ export const useTopologyStore = create<TopologyStore>()(
         set({
           edges: updatedEdges,
           selectedMemberLinkIndices: [],
+          selectedLagId: null,
         });
         get().triggerYamlRefresh();
       },
@@ -973,24 +998,22 @@ export const useTopologyStore = create<TopologyStore>()(
         if (!lag) return;
 
         const memberLinks = edge.data.memberLinks || [];
+        const lagMemberLinks = lag.memberLinkIndices.map(i => memberLinks[i]).filter(Boolean);
+        const lastLagLink = lagMemberLinks[lagMemberLinks.length - 1];
 
-        const sourcePortNumbers = memberLinks.map(ml => {
-          const match = ml.sourceInterface.match(/ethernet-1-(\d+)/);
-          return match ? parseInt(match[1], 10) : 0;
-        });
-        const nextSourcePort = Math.max(0, ...sourcePortNumbers) + 1;
-
-        const targetPortNumbers = memberLinks.map(ml => {
-          const match = ml.targetInterface.match(/ethernet-1-(\d+)/);
-          return match ? parseInt(match[1], 10) : 0;
-        });
-        const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
+        const incrementInterface = (iface: string) => {
+          const match = iface.match(/^(.+?)(\d+)$/);
+          if (match) {
+            return `${match[1]}${parseInt(match[2], 10) + 1}`;
+          }
+          return `${iface}-${lagMemberLinks.length + 1}`;
+        };
 
         const newLink: MemberLink = {
           name: `${lag.name}-${lag.memberLinkIndices.length + 1}`,
-          template: lag.template || 'isl',
-          sourceInterface: `ethernet-1-${nextSourcePort}`,
-          targetInterface: `ethernet-1-${nextTargetPort}`,
+          template: lag.template || lastLagLink?.template,
+          sourceInterface: incrementInterface(lastLagLink?.sourceInterface || 'ethernet-1/1'),
+          targetInterface: incrementInterface(lastLagLink?.targetInterface || 'ethernet-1/1'),
         };
 
         const newMemberLinkIndex = memberLinks.length;
@@ -1013,7 +1036,10 @@ export const useTopologyStore = create<TopologyStore>()(
           return e;
         });
 
-        set({ edges: updatedEdges });
+        set({
+          edges: updatedEdges,
+          selectedLagId: lagId,
+        });
         get().triggerYamlRefresh();
       },
 
@@ -1039,7 +1065,7 @@ export const useTopologyStore = create<TopologyStore>()(
             }
             return e;
           });
-          set({ edges: updatedEdges, selectedMemberLinkIndices: [] });
+          set({ edges: updatedEdges, selectedLagId: null });
         } else {
           const updatedEdges = edges.map(e => {
             if (e.id === edgeId) {
@@ -1057,7 +1083,7 @@ export const useTopologyStore = create<TopologyStore>()(
             }
             return e;
           });
-          set({ edges: updatedEdges });
+          set({ edges: updatedEdges, selectedLagId: lagId });
         }
         get().triggerYamlRefresh();
       },
@@ -1182,6 +1208,7 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedEdgeId: newEdgeId,
           selectedEdgeIds: [newEdgeId],
           selectedMemberLinkIndices: [],
+          selectedLagId: null,
         });
         get().triggerYamlRefresh();
       },
@@ -1194,6 +1221,7 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedEdgeId: null,
           selectedEdgeIds: [],
           selectedMemberLinkIndices: [],
+          selectedLagId: null,
           nodes: get().nodes.map(n => ({ ...n, selected: false })),
           edges: get().edges.map(e => ({ ...e, selected: false })),
         });
