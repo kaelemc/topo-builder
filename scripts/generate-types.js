@@ -161,6 +161,7 @@ export interface TopologyState {
   selectedSimNodeNames: Set<string>;
   expandedEdges: Set<string>;
   selectedMemberLinkIndices: number[];
+  selectedLagId: string | null;
   yamlRefreshCounter: number;
   layoutVersion: number;
   darkMode: boolean;
