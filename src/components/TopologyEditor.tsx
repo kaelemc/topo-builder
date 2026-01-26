@@ -334,7 +334,9 @@ function TopologyEditorInner() {
           selectedEdgeId: allEdgeIds.length > 0 ? allEdgeIds[allEdgeIds.length - 1] : null,
           edges: edges.map(edge => ({ ...edge, selected: true })),
         });
-        setSelectedSimNodes(new Set(simulation.simNodes.map(sn => sn.name)));
+        if (showSimNodes) {
+          setSelectedSimNodes(new Set(simulation.simNodes.map(sn => sn.name)));
+        }
       }
 
       if (isCtrlOrCmd && e.key === 'c') {
@@ -384,7 +386,7 @@ function TopologyEditorInner() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nodes, edges, simulation.simNodes, selectedSimNodes, onNodesChange, onEdgesChange, pasteSelection, addSimNode, triggerYamlRefresh]);
+  }, [nodes, edges, simulation.simNodes, selectedSimNodes, showSimNodes, onNodesChange, onEdgesChange, pasteSelection, addSimNode, triggerYamlRefresh]);
 
   const handlePaneClick = useCallback(() => {
     selectNode(null);
