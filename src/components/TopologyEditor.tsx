@@ -186,6 +186,8 @@ function TopologyEditorInner() {
     pasteSelection,
     createLagFromMemberLinks,
     createMultihomedLag,
+    mergeEdgesIntoEsiLag,
+    setError,
   } = useTopologyStore();
 
   const { screenToFlowPosition } = useReactFlow();
@@ -628,26 +630,73 @@ function TopologyEditorInner() {
   };
 
   // ENSURE A COMMON NODE IS SELECTED
-  const canCreateEsiLag = (() => {
-    if (selectedEdgeIds.length < 2 || selectedEdgeIds.length > 4) return false;
+  const esiLagValidation = (() => {
+    if (selectedEdgeIds.length < 2) return { valid: false, error: null };
 
     const selectedEdges = selectedEdgeIds
       .map(id => edges.find(e => e.id === id))
       .filter((e): e is typeof edges[0] => e !== undefined);
 
-    if (selectedEdges.length !== selectedEdgeIds.length) return false;
+    if (selectedEdges.length !== selectedEdgeIds.length) return { valid: false, error: null };
 
-    const allNodes = selectedEdges.flatMap(e => [e.source, e.target]);
-    const nodeCounts = new Map<string, number>();
-    allNodes.forEach(n => nodeCounts.set(n, (nodeCounts.get(n) || 0) + 1));
+    const esiLagEdges = selectedEdges.filter(e => e.data?.isMultihomed);
+    const regularEdges = selectedEdges.filter(e => !e.data?.isMultihomed);
 
-    const commonNodes = [...nodeCounts.entries()].filter(([_, count]) => count === selectedEdges.length);
-    return commonNodes.length === 1;
+    if (esiLagEdges.length > 1) {
+      return { valid: false, error: 'Cannot merge multiple ESI LAGs' };
+    }
+
+    const esiLag = esiLagEdges[0];
+    const esiLeafCount = esiLag?.data?.esiLeaves?.length || 0;
+    const totalLeaves = esiLeafCount + regularEdges.length;
+
+    if (esiLag && totalLeaves > 4) {
+      return { valid: false, error: 'ESI LAG cannot have more than 4 links' };
+    }
+
+    if (!esiLag && selectedEdges.length > 4) {
+      return { valid: false, error: 'ESI LAG cannot have more than 4 links' };
+    }
+
+    if (esiLag) {
+      const esiLagSourceId = esiLag.source;
+      for (const edge of regularEdges) {
+        if (edge.source !== esiLagSourceId && edge.target !== esiLagSourceId) {
+          return { valid: false, error: 'Selected edges must share exactly one common node' };
+        }
+      }
+    } else {
+      const nodeCounts = new Map<string, number>();
+      for (const edge of regularEdges) {
+        nodeCounts.set(edge.source, (nodeCounts.get(edge.source) || 0) + 1);
+        nodeCounts.set(edge.target, (nodeCounts.get(edge.target) || 0) + 1);
+      }
+
+      const commonNodes = [...nodeCounts.entries()].filter(([_, count]) => count === regularEdges.length);
+
+      if (commonNodes.length !== 1) {
+        return { valid: false, error: 'Selected edges must share exactly one common node' };
+      }
+    }
+
+    return { valid: true, error: null, esiLag, regularEdges };
   })();
 
+  const canCreateEsiLag = selectedEdgeIds.length >= 2;
+  const isMergeIntoEsiLag = esiLagValidation.valid && !!(esiLagValidation as { esiLag?: typeof edges[0] }).esiLag;
+
   const handleCreateEsiLag = () => {
-    if (selectedEdgeIds.length >= 2 && selectedEdgeIds.length <= 4 && canCreateEsiLag) {
-      createMultihomedLag(selectedEdgeIds[0], selectedEdgeIds[1], selectedEdgeIds.slice(2));
+    if (!esiLagValidation.valid && esiLagValidation.error) {
+      setError(esiLagValidation.error);
+      return;
+    }
+    if (esiLagValidation.valid) {
+      const { esiLag, regularEdges } = esiLagValidation as { valid: true; esiLag?: typeof edges[0]; regularEdges: typeof edges };
+      if (esiLag && regularEdges.length > 0) {
+        mergeEdgesIntoEsiLag(esiLag.id, regularEdges.map(e => e.id));
+      } else {
+        createMultihomedLag(selectedEdgeIds[0], selectedEdgeIds[1], selectedEdgeIds.slice(2));
+      }
     }
   };
 
@@ -776,6 +825,7 @@ function TopologyEditorInner() {
         simNodeTemplates={simulation.simNodeTemplates}
         selectedMemberLinkCount={selectedMemberLinkIndices.length}
         canCreateEsiLag={canCreateEsiLag}
+        isMergeIntoEsiLag={isMergeIntoEsiLag}
       />
     </AppLayout>
   );

@@ -14,7 +14,7 @@ import {
   useTheme,
   Chip,
 } from "@mui/material";
-import { Delete as DeleteIcon, Add as AddIcon } from "@mui/icons-material";
+import { Delete as DeleteIcon, Add as AddIcon, SubdirectoryArrowRight as ArrowIcon } from "@mui/icons-material";
 import { useTopologyStore } from "../lib/store";
 import {
   NODE_PROFILE_SUGGESTIONS,
@@ -415,13 +415,21 @@ export function SelectionPanel() {
             sx={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
+              alignItems: "flex-start",
               mb: 1,
             }}
           >
-            <Typography variant="subtitle2" fontWeight={600}>
-              {nodeA} ↔ {nodeB}
-            </Typography>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={600}>{nodeB}</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5, pl: 2 }}>
+                {esiLeaves.map((leaf) => (
+                  <Box key={leaf.nodeId} sx={{ display: 'flex', alignItems: 'center', color: 'text.secondary' }}>
+                    <ArrowIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                    <Typography variant="body2">{leaf.nodeName}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
             <Chip
               label="ESI"
               size="small"

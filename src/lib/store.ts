@@ -113,6 +113,7 @@ interface TopologyActions {
   removeLinkFromLag: (edgeId: string, lagId: string, memberLinkIndex: number) => void;
   addLinkToEsiLag: (edgeId: string) => void;
   removeLinkFromEsiLag: (edgeId: string, leafIndex: number) => void;
+  mergeEdgesIntoEsiLag: (esiLagId: string, edgeIds: string[]) => void;
 
   toggleEdgeExpanded: (edgeId: string) => void;
   toggleAllEdgesExpanded: () => void;
@@ -1299,6 +1300,101 @@ export const useTopologyStore = create<TopologyStore>()(
         });
 
         set({ edges: updatedEdges });
+        get().triggerYamlRefresh();
+      },
+
+      mergeEdgesIntoEsiLag: (esiLagId: string, edgeIds: string[]) => {
+        const edges = get().edges;
+        const nodes = get().nodes;
+        const simNodes = get().simulation.simNodes || [];
+
+        const esiLagEdge = edges.find(e => e.id === esiLagId);
+        if (!esiLagEdge || !esiLagEdge.data?.isMultihomed || !esiLagEdge.data.esiLeaves) return;
+
+        const edgesToMerge = edgeIds
+          .map(id => edges.find(e => e.id === id))
+          .filter((e): e is Edge<TopologyEdgeData> => e !== undefined && !e.data?.isMultihomed);
+
+        if (edgesToMerge.length === 0) return;
+
+        const currentLeaves = esiLagEdge.data.esiLeaves;
+        const currentMemberLinks = esiLagEdge.data.memberLinks || [];
+
+        if (currentLeaves.length + edgesToMerge.length > 4) {
+          get().setError('ESI LAG cannot have more than 4 links');
+          return;
+        }
+
+        const commonNodeId = esiLagEdge.source;
+
+        const findNodeById = (id: string) => {
+          const topoNode = nodes.find(n => n.id === id);
+          if (topoNode) return { id, name: topoNode.data.name, isSimNode: false };
+          const simNode = simNodes.find(s => s.id === id);
+          if (simNode) return { id, name: simNode.name, isSimNode: true };
+          return null;
+        };
+
+        const toSourceHandle = (handle: string | null | undefined): string => {
+          if (!handle) return 'bottom';
+          return handle.replace('-target', '');
+        };
+        const toTargetHandle = (handle: string | null | undefined): string => {
+          if (!handle) return 'bottom-target';
+          if (handle.endsWith('-target')) return handle;
+          return handle + '-target';
+        };
+
+        const newLeaves = [...currentLeaves];
+        const newMemberLinks = [...currentMemberLinks];
+
+        for (const edge of edgesToMerge) {
+          const leafId = edge.source === commonNodeId ? edge.target : edge.source;
+          const leafInfo = findNodeById(leafId);
+          if (!leafInfo) continue;
+
+          const sourceHandle = edge.source === commonNodeId
+            ? (edge.sourceHandle || 'bottom')
+            : toSourceHandle(edge.targetHandle);
+          const leafHandle = edge.source === commonNodeId
+            ? (edge.targetHandle || 'bottom-target')
+            : toTargetHandle(edge.sourceHandle);
+
+          newLeaves.push({
+            nodeId: leafId,
+            nodeName: leafInfo.name,
+            leafHandle,
+            sourceHandle,
+          });
+
+          const edgeMemberLinks = edge.data?.memberLinks || [];
+          newMemberLinks.push(...edgeMemberLinks);
+        }
+
+        const edgeIdsToRemove = new Set(edgeIds);
+        const filteredEdges = edges.filter(e => !edgeIdsToRemove.has(e.id));
+
+        const updatedEdges = filteredEdges.map(e => {
+          if (e.id === esiLagId) {
+            return {
+              ...e,
+              data: {
+                ...e.data!,
+                memberLinks: newMemberLinks,
+                esiLeaves: newLeaves,
+              },
+            };
+          }
+          return e;
+        });
+
+        set({
+          edges: updatedEdges,
+          selectedEdgeId: esiLagId,
+          selectedEdgeIds: [esiLagId],
+          selectedMemberLinkIndices: [],
+          selectedLagId: null,
+        });
         get().triggerYamlRefresh();
       },
 

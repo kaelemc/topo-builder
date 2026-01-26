@@ -43,6 +43,7 @@ interface ContextMenuProps {
   currentSimNodeTemplate?: string;
   selectedMemberLinkCount?: number;
   canCreateEsiLag?: boolean;
+  isMergeIntoEsiLag?: boolean;
 }
 
 export default function ContextMenu({
@@ -67,6 +68,7 @@ export default function ContextMenu({
   currentSimNodeTemplate,
   selectedMemberLinkCount = 0,
   canCreateEsiLag = false,
+  isMergeIntoEsiLag = false,
 }: ContextMenuProps) {
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const [showSubmenu, setShowSubmenu] = useState(false);
@@ -198,7 +200,7 @@ export default function ContextMenu({
                 <>
                   <MenuItem onClick={() => { onCreateEsiLag(); onClose(); }}>
                     <ListItemIcon><MergeIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Create ESI LAG</ListItemText>
+                    <ListItemText>{isMergeIntoEsiLag ? 'Merge into ESI LAG' : 'Create ESI LAG'}</ListItemText>
                   </MenuItem>
                   <Divider />
                 </>
