@@ -211,26 +211,7 @@ function TopologyEditorInner() {
     simNodes: typeof simulation.simNodes;
   }>({ nodes: [], edges: [], simNodes: [] });
 
-  // Track tab to restore after new link creation (using sessionStorage for reliability)
-  const getPrevTabForNewLink = () => {
-    const saved = sessionStorage.getItem('topology-prev-tab-for-new-link');
-    return saved ? parseInt(saved, 10) : null;
-  };
-  const setPrevTabForNewLink = (tab: number | null) => {
-    if (tab === null) {
-      sessionStorage.removeItem('topology-prev-tab-for-new-link');
-    } else {
-      sessionStorage.setItem('topology-prev-tab-for-new-link', tab.toString());
-    }
-  };
-  const getIsNewLink = () => sessionStorage.getItem('topology-is-new-link') === 'true';
-  const setIsNewLink = (value: boolean) => {
-    if (value) {
-      sessionStorage.setItem('topology-is-new-link', 'true');
-    } else {
-      sessionStorage.removeItem('topology-is-new-link');
-    }
-  };
+  const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const [selectedSimNodes, setSelectedSimNodes] = useState<Set<string>>(new Set());
 
@@ -239,25 +220,6 @@ function TopologyEditorInner() {
       setSelectedSimNodes(new Set());
     }
   }, [selectedNodeId, selectedEdgeId]);
-
-  // Switch back to previous tab when new link is deselected
-  useEffect(() => {
-    const prevTab = getPrevTabForNewLink();
-    if (!selectedEdgeId && getIsNewLink() && prevTab !== null) {
-      setActiveTab(prevTab);
-      setPrevTabForNewLink(null);
-      setIsNewLink(false);
-    }
-  }, [selectedEdgeId]);
-
-  // Wrap onConnect to switch to Selection tab for new links
-  const handleConnect = useCallback((connection: Parameters<typeof onConnect>[0]) => {
-    // Store current tab and switch to Selection
-    setPrevTabForNewLink(activeTab);
-    setIsNewLink(true);
-    setActiveTab(1); // Selection tab
-    onConnect(connection);
-  }, [onConnect, activeTab]);
 
   const simFlowNodes: Node<SimDeviceNodeData>[] = useMemo(() => {
     if (!showSimNodes) return [];
@@ -353,8 +315,25 @@ function TopologyEditorInner() {
         if (copiedNodes.length > 0 || copiedSimNodes.length > 0) {
           e.preventDefault();
 
+          const allPositions = [
+            ...copiedNodes.map(n => n.position),
+            ...copiedSimNodes.map(sn => sn.position).filter((p): p is { x: number; y: number } => !!p),
+          ];
+          const centerX = allPositions.length > 0
+            ? allPositions.reduce((sum, p) => sum + p.x, 0) / allPositions.length
+            : 0;
+          const centerY = allPositions.length > 0
+            ? allPositions.reduce((sum, p) => sum + p.y, 0) / allPositions.length
+            : 0;
+
+          const cursorPos = mousePositionRef.current;
+          const offset = {
+            x: cursorPos.x - centerX,
+            y: cursorPos.y - centerY,
+          };
+
           if (copiedSimNodes.length === 0) setSelectedSimNodes(new Set());
-          if (copiedNodes.length > 0) pasteSelection(copiedNodes, copiedEdges, { x: 50, y: 50 });
+          if (copiedNodes.length > 0) pasteSelection(copiedNodes, copiedEdges, offset);
 
           if (copiedSimNodes.length > 0) {
             const existingSimNodeNames = simulation.simNodes.map(sn => sn.name);
@@ -373,7 +352,7 @@ function TopologyEditorInner() {
               addSimNode({
                 ...simNode,
                 name: newName,
-                position: simNode.position ? { x: simNode.position.x + 50, y: simNode.position.y + 50 } : undefined,
+                position: simNode.position ? { x: simNode.position.x + offset.x, y: simNode.position.y + offset.y } : undefined,
               });
             }
 
@@ -402,6 +381,14 @@ function TopologyEditorInner() {
   const handleNodeDragStart = useCallback(() => {
     setContextMenu(prev => ({ ...prev, open: false }));
   }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      mousePositionRef.current = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [screenToFlowPosition]);
 
   const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     if (node.type === 'simDeviceNode') {
@@ -550,7 +537,7 @@ function TopologyEditorInner() {
             edges={edges}
             onNodesChange={handleNodesChange}
             onEdgesChange={onEdgesChange}
-            onConnect={handleConnect}
+            onConnect={onConnect}
             onPaneClick={handlePaneClick}
             onNodeClick={handleNodeClick}
             onEdgeClick={handleEdgeClick}
