@@ -87,6 +87,13 @@ export interface MultihomeMemberLink {
   }>;
 }
 
+export interface EsiLeafConnection {
+  nodeId: string;
+  nodeName: string;
+  leafHandle: string;
+  sourceHandle: string;
+}
+
 export interface TopologyEdgeData {
   [key: string]: unknown;
   id: string;
@@ -94,8 +101,8 @@ export interface TopologyEdgeData {
   targetNode: string;
   memberLinks?: MemberLink[];
   lagGroups?: LagGroup[];
-  // For ESI LAG: edges with same esiLagId are part of the same 3-node LAG
-  esiLagId?: string;
+  isMultihomed?: boolean;
+  esiLeaves?: EsiLeafConnection[];
 }
 
 export interface NodeTemplate {

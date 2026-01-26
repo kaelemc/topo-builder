@@ -402,6 +402,135 @@ export function SelectionPanel() {
       );
     }
 
+    if (edgeData.isMultihomed && edgeData.esiLeaves) {
+      const esiLeaves = edgeData.esiLeaves;
+      const addLinkToEsiLag = useTopologyStore.getState().addLinkToEsiLag;
+      const removeLinkFromEsiLag = useTopologyStore.getState().removeLinkFromEsiLag;
+
+      return (
+        <Box>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 1,
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={600}>
+              {nodeA} ↔ {nodeB}
+            </Typography>
+            <Chip
+              label="ESI"
+              size="small"
+              sx={{
+                height: '20px',
+                fontSize: '10px',
+                fontWeight: 600,
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+              }}
+            />
+          </Box>
+
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <FormControl size="small" fullWidth>
+              <InputLabel>Template</InputLabel>
+              <Select
+                label="Template"
+                value={memberLinks[0]?.template || ""}
+                onChange={(e) => {
+                  const newTemplate = e.target.value;
+                  const newLinks = memberLinks.map(link => ({ ...link, template: newTemplate }));
+                  updateEdge(selectedEdge.id, { memberLinks: newLinks });
+                  triggerYamlRefresh();
+                }}
+              >
+                <MenuItem value="">None</MenuItem>
+                {linkTemplates.map((t) => (
+                  <MenuItem key={t.name} value={t.name}>
+                    {t.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Box>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 1,
+                }}
+              >
+                <Typography variant="body2" fontWeight={600}>
+                  Endpoints ({esiLeaves.length})
+                </Typography>
+                {esiLeaves.length < 4 && (
+                  <Button
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={() => addLinkToEsiLag(selectedEdge.id)}
+                  >
+                    Add
+                  </Button>
+                )}
+              </Box>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {esiLeaves.map((leaf, index) => {
+                  const memberLink = memberLinks[index];
+                  return (
+                    <Paper
+                      key={index}
+                      variant="outlined"
+                      sx={{ p: 1 }}
+                    >
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr auto",
+                          gap: 1,
+                          alignItems: "center",
+                        }}
+                      >
+                        <TextField
+                          label={leaf.nodeName}
+                          size="small"
+                          value={memberLink?.targetInterface || ''}
+                          onChange={(e) =>
+                            handleUpdateLink(index, { targetInterface: e.target.value })
+                          }
+                          fullWidth
+                        />
+                        <TextField
+                          label={nodeB}
+                          size="small"
+                          value={memberLink?.sourceInterface || ''}
+                          onChange={(e) =>
+                            handleUpdateLink(index, { sourceInterface: e.target.value })
+                          }
+                          fullWidth
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={() => removeLinkFromEsiLag(selectedEdge.id, index)}
+                          disabled={esiLeaves.length <= 2}
+                          title={esiLeaves.length <= 2 ? "Minimum 2 links required" : "Remove endpoint"}
+                        >
+                          <DeleteIcon fontSize="small" color={esiLeaves.length <= 2 ? "disabled" : "error"} />
+                        </IconButton>
+                      </Box>
+                    </Paper>
+                  );
+                })}
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      );
+    }
+
     const addMemberLink = useTopologyStore.getState().addMemberLink;
     const isShowingBundle = !isExpanded || memberLinks.length <= 1;
 

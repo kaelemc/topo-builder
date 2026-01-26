@@ -111,6 +111,8 @@ interface TopologyActions {
   createMultihomedLag: (edgeId1: string, edgeId2: string, additionalEdgeIds?: string[]) => void;
   addLinkToLag: (edgeId: string, lagId: string) => void;
   removeLinkFromLag: (edgeId: string, lagId: string, memberLinkIndex: number) => void;
+  addLinkToEsiLag: (edgeId: string) => void;
+  removeLinkFromEsiLag: (edgeId: string, leafIndex: number) => void;
 
   toggleEdgeExpanded: (edgeId: string) => void;
   toggleAllEdgesExpanded: () => void;
@@ -1210,6 +1212,86 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedMemberLinkIndices: [],
           selectedLagId: null,
         });
+        get().triggerYamlRefresh();
+      },
+
+      addLinkToEsiLag: (edgeId: string) => {
+        const edges = get().edges;
+        const edge = edges.find(e => e.id === edgeId);
+        if (!edge || !edge.data?.isMultihomed || !edge.data.esiLeaves) return;
+
+        const esiLeaves = edge.data.esiLeaves;
+        const memberLinks = edge.data.memberLinks || [];
+
+        if (esiLeaves.length >= 4) return;
+
+        const lastLeaf = esiLeaves[esiLeaves.length - 1];
+        const lastMemberLink = memberLinks[memberLinks.length - 1];
+
+        const incrementInterface = (iface: string) => {
+          const match = iface.match(/^(.+?)(\d+)$/);
+          if (match) {
+            return `${match[1]}${parseInt(match[2], 10) + 1}`;
+          }
+          return `${iface}-${esiLeaves.length + 1}`;
+        };
+
+        const newMemberLink: MemberLink = {
+          name: `${edge.data.sourceNode}-${lastLeaf.nodeName}-${memberLinks.length + 1}`,
+          sourceInterface: incrementInterface(lastMemberLink?.sourceInterface || 'eth1'),
+          targetInterface: incrementInterface(lastMemberLink?.targetInterface || 'ethernet-1-1'),
+        };
+
+        const newLeaf = {
+          nodeId: lastLeaf.nodeId,
+          nodeName: lastLeaf.nodeName,
+          leafHandle: lastLeaf.leafHandle,
+          sourceHandle: lastLeaf.sourceHandle,
+        };
+
+        const updatedEdges = edges.map(e => {
+          if (e.id === edgeId) {
+            return {
+              ...e,
+              data: {
+                ...e.data!,
+                memberLinks: [...memberLinks, newMemberLink],
+                esiLeaves: [...esiLeaves, newLeaf],
+              },
+            };
+          }
+          return e;
+        });
+
+        set({ edges: updatedEdges });
+        get().triggerYamlRefresh();
+      },
+
+      removeLinkFromEsiLag: (edgeId: string, leafIndex: number) => {
+        const edges = get().edges;
+        const edge = edges.find(e => e.id === edgeId);
+        if (!edge || !edge.data?.isMultihomed || !edge.data.esiLeaves) return;
+
+        const esiLeaves = edge.data.esiLeaves;
+        const memberLinks = edge.data.memberLinks || [];
+
+        if (esiLeaves.length <= 2) return;
+
+        const updatedEdges = edges.map(e => {
+          if (e.id === edgeId) {
+            return {
+              ...e,
+              data: {
+                ...e.data!,
+                memberLinks: memberLinks.filter((_, i) => i !== leafIndex),
+                esiLeaves: esiLeaves.filter((_, i) => i !== leafIndex),
+              },
+            };
+          }
+          return e;
+        });
+
+        set({ edges: updatedEdges });
         get().triggerYamlRefresh();
       },
 

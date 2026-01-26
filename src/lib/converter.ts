@@ -24,7 +24,7 @@ interface ExportOptions {
 
 interface YamlLink {
   name?: string;
-  encapType?: string;
+  encapType?: string | null;
   template?: string;
   labels?: Record<string, string>;
   endpoints: Array<{
@@ -142,7 +142,7 @@ export function exportToYaml(options: ExportOptions): string {
         });
 
         const link: YamlLink = {
-          encapType: 'dot1q',
+          encapType: null,
           endpoints,
         };
         esiLagLinks.push(link);
