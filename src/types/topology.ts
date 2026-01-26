@@ -115,6 +115,7 @@ export interface TopologyState {
   selectedEdgeId: string | null;
   selectedEdgeIds: string[];
   selectedSimNodeName: string | null;
+  selectedSimNodeNames: Set<string>;
   expandedEdges: Set<string>;
   selectedMemberLinkIndices: number[];
   yamlRefreshCounter: number;
