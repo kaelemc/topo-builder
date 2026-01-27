@@ -71,13 +71,13 @@ spec:
     - name: node1
       template: leaf
       labels:
-        topobuilder/x: "195"
-        topobuilder/y: "300"
+        topobuilder.eda.labs/x: "195"
+        topobuilder.eda.labs/y: "300"
     - name: node2
       template: leaf
       labels:
-        topobuilder/x: "345"
-        topobuilder/y: "315"
+        topobuilder.eda.labs/x: "345"
+        topobuilder.eda.labs/y: "315"
   linkTemplates:
     - name: isl
       type: interSwitch
@@ -93,10 +93,10 @@ spec:
   links:
     - name: node1-node2-1
       labels:
-        topobuilder/edgeId: edge-1
-        topobuilder/memberIndex: "0"
-        topobuilder/srcHandle: left
-        topobuilder/dstHandle: right-target
+        topobuilder.eda.labs/edgeId: edge-1
+        topobuilder.eda.labs/memberIndex: "0"
+        topobuilder.eda.labs/srcHandle: left
+        topobuilder.eda.labs/dstHandle: right-target
       endpoints:
         - local:
             node: node2
@@ -185,13 +185,13 @@ spec:
     - name: node1
       template: leaf
       labels:
-        topobuilder/x: "195"
-        topobuilder/y: "300"
+        topobuilder.eda.labs/x: "195"
+        topobuilder.eda.labs/y: "300"
     - name: node2
       template: leaf
       labels:
-        topobuilder/x: "345"
-        topobuilder/y: "315"
+        topobuilder.eda.labs/x: "345"
+        topobuilder.eda.labs/y: "315"
   linkTemplates:
     - name: isl
       type: interSwitch
@@ -207,10 +207,10 @@ spec:
   links:
     - name: node1-node2-1
       labels:
-        topobuilder/edgeId: edge-1
-        topobuilder/memberIndex: "0"
-        topobuilder/srcHandle: left
-        topobuilder/dstHandle: right-target
+        topobuilder.eda.labs/edgeId: edge-1
+        topobuilder.eda.labs/memberIndex: "0"
+        topobuilder.eda.labs/srcHandle: left
+        topobuilder.eda.labs/dstHandle: right-target
       endpoints:
         - local:
             node: node2
@@ -227,4 +227,85 @@ spec:
         type: Linux
         image: ghcr.io/srl-labs/network-multitool:latest
     simNodes: []`);
+});
+
+test('Create local LAG from multiple member links', async ({ page }) => {
+  await page.goto('http://localhost:4321/topo-builder');
+  await page.waitForSelector('.react-flow__pane');
+
+  await page.locator('.react-flow__pane').click({ button: 'right', position: NODE1_POS });
+  await page.getByRole('menuitem', { name: 'Add Node' }).click();
+
+  await page.waitForSelector('.react-flow__node');
+  await page.locator('.react-flow__pane').click({ position: EMPTY_POS });
+
+  await page.locator('.react-flow__pane').click({ button: 'right', position: NODE2_POS });
+  await page.getByRole('menuitem', { name: 'Add Node' }).click();
+
+  await page.waitForFunction(() => document.querySelectorAll('.react-flow__node').length === 2);
+
+  const firstNode = page.locator('.react-flow__node').first();
+  const secondNode = page.locator('.react-flow__node').last();
+
+  const firstBounds = await firstNode.boundingBox();
+  const secondBounds = await secondNode.boundingBox();
+
+  if (!firstBounds || !secondBounds) {
+    throw new Error('Could not get node bounds');
+  }
+
+  const sourceX = firstBounds.x + firstBounds.width;
+  const sourceY = firstBounds.y + firstBounds.height / 2;
+  const targetX = secondBounds.x;
+  const targetY = secondBounds.y + secondBounds.height / 2;
+
+  await page.mouse.move(sourceX, sourceY);
+  await page.mouse.down();
+  await page.mouse.move(targetX, targetY, { steps: 10 });
+  await page.mouse.up();
+
+  expect(await getEdgeCount(page)).toBe(1);
+
+  // Select edge and copy/paste to create more member links
+  const edge = page.locator('.react-flow__edge').first();
+  await edge.click();
+  await page.waitForTimeout(100);
+
+  // Click on the pane to ensure focus is not on a text field
+  await page.locator('.react-flow__pane').click({ position: EMPTY_POS });
+  await edge.click();
+
+  // Copy and paste to add member links
+  await page.keyboard.press('ControlOrMeta+c');
+  await page.waitForTimeout(50);
+  await page.keyboard.press('ControlOrMeta+v');
+  await page.waitForTimeout(50);
+  await page.keyboard.press('ControlOrMeta+v');
+  await page.waitForTimeout(50);
+  await page.keyboard.press('ControlOrMeta+v');
+  await page.waitForTimeout(100);
+
+  // Click the link counter chip to expand the bundle
+  await page.locator('[title*="links - click to expand"]').click();
+  await page.waitForTimeout(100);
+
+  // expect(await getEdgeCount(page)).toBe(4);
+
+  // Shift select all the member links
+  const memberLinks = page.locator('.react-flow__edge-interaction');
+  const count = await memberLinks.count();
+  await memberLinks.first().click({ force: true });
+  for (let i = 1; i < count; i++) {
+    await memberLinks.nth(i).click({ modifiers: ['Shift'], force: true });
+  }
+
+  // Right-click to open context menu and create LAG
+  await memberLinks.last().click({ button: 'right', force: true });
+  await page.getByRole('menuitem', { name: 'Create Local LAG' }).click();
+
+  await page.getByRole('tab', { name: 'YAML' }).click();
+  const yaml = await getYamlContent(page);
+
+  expect(yaml).toContain('lagLinks:');
+  expect(yaml).toContain('lag-');
 });

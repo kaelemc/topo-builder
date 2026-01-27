@@ -41,8 +41,8 @@ spec:
     - name: node1
       template: leaf
       labels:
-        topobuilder/x: "390"
-        topobuilder/y: "330"
+        topobuilder.eda.labs/x: "390"
+        topobuilder.eda.labs/y: "330"
   linkTemplates:
     - name: isl
       type: interSwitch
