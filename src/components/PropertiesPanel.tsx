@@ -162,6 +162,14 @@ export function SelectionPanel() {
   const targetInterfaceRef = useRef<HTMLInputElement>(null);
   const prevSelectedEdgeIdRef = useRef<string | null>(null);
 
+  const focusAtEnd = (input: HTMLInputElement | null) => {
+    if (input) {
+      input.focus();
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    }
+  };
+
   // Count selected items
   const selectedNodesCount = nodes.filter((n) => n.selected).length;
   const selectedEdgesCount = edges.filter((e) => e.selected).length;
@@ -170,12 +178,7 @@ export function SelectionPanel() {
   // Auto-focus and select node name when a new node is selected
   useEffect(() => {
     if (selectedNodeId && selectedNodeId !== prevSelectedNodeIdRef.current) {
-      setTimeout(() => {
-        if (nodeNameInputRef.current) {
-          nodeNameInputRef.current.focus();
-          nodeNameInputRef.current.select();
-        }
-      }, 50);
+      setTimeout(() => focusAtEnd(nodeNameInputRef.current), 50);
     }
     prevSelectedNodeIdRef.current = selectedNodeId;
   }, [selectedNodeId]);
@@ -184,13 +187,7 @@ export function SelectionPanel() {
   useEffect(() => {
     const newLinkId = sessionStorage.getItem('topology-new-link-id');
     if (selectedEdgeId && selectedEdgeId === newLinkId) {
-      setTimeout(() => {
-        if (sourceInterfaceRef.current) {
-          sourceInterfaceRef.current.focus();
-          const len = sourceInterfaceRef.current.value.length;
-          sourceInterfaceRef.current.setSelectionRange(len, len);
-        }
-      }, 100);
+      setTimeout(() => focusAtEnd(sourceInterfaceRef.current), 100);
       sessionStorage.removeItem('topology-new-link-id');
     }
     prevSelectedEdgeIdRef.current = selectedEdgeId;
