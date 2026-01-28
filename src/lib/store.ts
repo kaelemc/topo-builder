@@ -1951,6 +1951,7 @@ export const useTopologyStore = create<TopologyStore>()(
             };
           }
 
+          updates.layoutVersion = get().layoutVersion + 1;
           set(updates);
           return true;
         } catch (e) {
