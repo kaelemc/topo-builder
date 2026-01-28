@@ -60,6 +60,7 @@ export default function BaseNode({
 
   return (
     <div
+      onDoubleClick={() => window.dispatchEvent(new CustomEvent('focusNodeName'))}
       className={`group relative w-20 h-20 bg-(--color-node-bg) border rounded-lg flex flex-col items-center justify-center gap-0.5 ${
         selected ? 'border-(--color-node-border-selected)' : 'border-(--color-node-border)'
       } ${darkMode ? 'dark' : ''} ${className || 'border-solid'}`}
@@ -73,10 +74,14 @@ export default function BaseNode({
       <Handle type="source" position={Position.Right} id="right" className={getHandleClassName('right')} />
       <Handle type="target" position={Position.Right} id="right-target" className={getHandleClassName('right-target')} />
 
-      {icon}
-
-      <div className="w-17.5 text-xs font-bold text-(--color-node-text) text-center overflow-hidden text-ellipsis whitespace-nowrap">
-        {name}
+      <div
+        onDoubleClick={() => window.dispatchEvent(new CustomEvent('focusNodeName'))}
+        className="flex flex-col items-center justify-center gap-0.5"
+      >
+        <span className="pointer-events-none">{icon}</span>
+        <div className="w-17.5 text-xs font-bold text-(--color-node-text) text-center overflow-hidden text-ellipsis whitespace-nowrap pointer-events-none">
+          {name}
+        </div>
       </div>
     </div>
   );

@@ -205,6 +205,12 @@ export function SelectionPanel() {
     prevSelectedEdgeIdRef.current = selectedEdgeId;
   }, [selectedEdgeId]);
 
+  useEffect(() => {
+    const handler = () => focusAtEnd(nodeNameInputRef.current);
+    window.addEventListener('focusNodeName', handler);
+    return () => window.removeEventListener('focusNodeName', handler);
+  }, []);
+
   // Don't show properties panel when multiple items are selected
   if (totalSelected > 1) {
     return null;
@@ -1463,10 +1469,17 @@ function SimNodeSelectionEditor({
   onUpdate: (update: Partial<{ name: string; template?: string }>) => void;
 }) {
   const [localName, setLocalName] = useState(simNode.name);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLocalName(simNode.name);
   }, [simNode.name]);
+
+  useEffect(() => {
+    const handler = () => nameInputRef.current?.focus();
+    window.addEventListener('focusNodeName', handler);
+    return () => window.removeEventListener('focusNodeName', handler);
+  }, []);
 
   const handleNameBlur = () => {
     if (localName !== simNode.name) {
@@ -1492,6 +1505,7 @@ function SimNodeSelectionEditor({
           value={localName}
           onChange={(e) => setLocalName(formatName(e.target.value))}
           onBlur={handleNameBlur}
+          inputRef={nameInputRef}
           fullWidth
         />
 
