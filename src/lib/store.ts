@@ -1817,10 +1817,18 @@ export const useTopologyStore = create<TopologyStore>()(
                       sourceHandle: 'bottom',
                     }));
 
+                    const userLabels = link.labels
+                      ? Object.fromEntries(
+                          Object.entries(link.labels).filter(([k]) => !k.startsWith('topobuilder.eda.labs/'))
+                        )
+                      : undefined;
+                    const hasUserLabels = userLabels && Object.keys(userLabels).length > 0;
+
                     const memberLinks = leafInfoList.map((leaf, i) => ({
                       name: `${firstSimName}-${leaf.name}-${i + 1}`,
                       sourceInterface: leaf.simInterface,
                       targetInterface: leaf.localInterface,
+                      labels: i === 0 && hasUserLabels ? userLabels : undefined,
                     }));
 
                     esiLagEdges.push({
@@ -1872,10 +1880,18 @@ export const useTopologyStore = create<TopologyStore>()(
                       sourceHandle: 'bottom',
                     }));
 
+                    const userLabels = link.labels
+                      ? Object.fromEntries(
+                          Object.entries(link.labels).filter(([k]) => !k.startsWith('topobuilder.eda.labs/'))
+                        )
+                      : undefined;
+                    const hasUserLabels = userLabels && Object.keys(userLabels).length > 0;
+
                     const memberLinks = leafNodes.map((leaf, i) => ({
                       name: `${sourceNode.name}-${leaf.name}-${i + 1}`,
                       sourceInterface: sourceNode.interface,
                       targetInterface: leaf.interface,
+                      labels: i === 0 && hasUserLabels ? userLabels : undefined,
                     }));
 
                     esiLagEdges.push({

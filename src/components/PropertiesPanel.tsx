@@ -67,7 +67,6 @@ function PanelSection({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mb: '0.5rem',
           minHeight: 32,
         }}
       >
@@ -76,6 +75,7 @@ function PanelSection({
         </Typography>
         {actions}
       </Box>
+      <Divider sx={{ mt: '0.25rem', mb: '1rem' }} />
       {children}
     </Box>
   );
@@ -218,7 +218,11 @@ export function SelectionPanel() {
 
   // Don't show properties panel when multiple items are selected
   if (totalSelected > 1) {
-    return null;
+    return (
+      <Typography color="text.secondary" textAlign="center" py="1rem">
+        Select a node or link
+      </Typography>
+    );
   }
 
   if (selectedNode) {
@@ -661,6 +665,17 @@ export function SelectionPanel() {
                 ))}
               </Select>
             </FormControl>
+            <EditableLabelsSection
+              labels={memberLinks[0]?.labels}
+              inheritedLabels={getInheritedLinkLabels(memberLinks[0], linkTemplates)}
+              onUpdate={(labels) => {
+                const newLinks = memberLinks.map((link, i) =>
+                  i === 0 ? { ...link, labels } : link
+                );
+                updateEdge(selectedEdge.id, { memberLinks: newLinks });
+                triggerYamlRefresh();
+              }}
+            />
           </Box>
 
           <PanelSection
@@ -1013,9 +1028,12 @@ function InheritedLabels({ labels }: { labels?: Record<string, string> }) {
   if (filteredLabels.length === 0) return null;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-      <Typography variant="body2" color="text.secondary" fontWeight={600}>
-        Inherited Labels
-      </Typography>
+      <Box sx={{ mb: '0.5rem' }}>
+        <Typography variant="body2" fontWeight={600}>
+          Inherited Labels
+        </Typography>
+        <Divider sx={{ mt: '0.25rem' }} />
+      </Box>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
         {filteredLabels.map(([key, value]) => (
           <Chip
@@ -1075,26 +1093,24 @@ function EditableLabelsSection({
   return (
     <Box>
       <InheritedLabels labels={inheritedLabels} />
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          pb: '0.25rem',
-          mb: '0.5rem',
-          mt: hasVisibleInheritedLabels ? '0.75rem' : 0,
-        }}
-      >
-        <Typography variant="body2" color="text.secondary" fontWeight={600}>
-          Labels
-        </Typography>
-        <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
-          Add
-        </Button>
+      <Box sx={{ mt: hasVisibleInheritedLabels ? '0.75rem' : 0 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Typography variant="body2" fontWeight={600}>
+            Labels
+          </Typography>
+          <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
+            Add
+          </Button>
+        </Box>
+        <Divider sx={{ mt: '0.25rem', mb: '1rem' }} />
       </Box>
-      <Box sx={{ display: "flex", flexDirection: "column", gap: '0.5rem' }}>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: '1rem' }}>
         {Object.entries(labels || {}).map(([key, value]) => (
           <LabelEditor
             key={key}
@@ -1234,7 +1250,7 @@ function NodeTemplateEditor({
               mb: '0.5rem',
             }}
           >
-          <Typography variant="body2" color="text.secondary" fontWeight={600}>
+          <Typography variant="body2" fontWeight={600}>
             Labels
           </Typography>
           <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
@@ -1555,7 +1571,7 @@ function LinkTemplateEditor({
               mb: '0.5rem',
             }}
           >
-          <Typography variant="body2" color="text.secondary" fontWeight={600}>
+          <Typography variant="body2" fontWeight={600}>
             Labels
           </Typography>
           <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>

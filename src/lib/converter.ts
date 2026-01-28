@@ -142,6 +142,7 @@ export function buildCrd(options: ExportOptions): NetworkTopologyCrd {
 
         const link: YamlLink = {
           name: edge.data?.esiLagName || `${sourceName}-esi-lag-${esiLagCounter++}`,
+          labels: memberLinks[0]?.labels,
           endpoints,
         };
         if (memberLinks[0]?.template) {
@@ -169,6 +170,7 @@ export function buildCrd(options: ExportOptions): NetworkTopologyCrd {
 
         const link: YamlLink = {
           name: edge.data?.esiLagName || `${sourceName}-esi-lag-${esiLagCounter++}`,
+          labels: memberLinks[0]?.labels,
           endpoints,
         };
         if (memberLinks[0]?.template) {
