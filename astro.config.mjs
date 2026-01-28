@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
 export default defineConfig({
-  base: '/topo-builder',
+  base: '/',
   integrations: [react()],
   output: 'static',
   vite: {

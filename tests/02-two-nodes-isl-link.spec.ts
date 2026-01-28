@@ -6,7 +6,7 @@ const NODE2_POS = { x: 600, y: 300 };
 const EMPTY_POS = { x: 50, y: 50 };
 
 test('Add two nodes and connect them with a link', async ({ page }) => {
-  await page.goto('http://localhost:4321/topo-builder');
+  await page.goto('http://localhost:4321/');
   await page.waitForSelector('.react-flow__pane');
 
   await page.locator('.react-flow__pane').click({ button: 'right', position: NODE1_POS });
@@ -116,7 +116,7 @@ spec:
 });
 
 test('Change link endpoint', async ({ page }) => {
-  await page.goto('http://localhost:4321/topo-builder');
+  await page.goto('http://localhost:4321/');
   await page.waitForSelector('.react-flow__pane');
 
   await page.locator('.react-flow__pane').click({ button: 'right', position: NODE1_POS });
@@ -230,7 +230,7 @@ spec:
 });
 
 // test('Create local LAG from multiple member links', async ({ page }) => {
-//   await page.goto('http://localhost:4321/topo-builder');
+//   await page.goto('http://localhost:4321/');
 //   await page.waitForSelector('.react-flow__pane');
 
 //   await page.locator('.react-flow__pane').click({ button: 'right', position: NODE1_POS });

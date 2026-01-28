@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
   import {getNodeCount, getYamlContent } from './utils';                                    
 
 test('Add a single node', async ({ page }) => {
-    await page.goto('http://localhost:4321/topo-builder');
+    await page.goto('http://localhost:4321/');
     await page.waitForSelector('.react-flow__pane');          
     await page.locator('.react-flow__pane').click();
     await page.locator('.react-flow__pane').click({
