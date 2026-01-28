@@ -15,7 +15,7 @@ import {
   type Connection,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Box, Tabs, Tab, useTheme, IconButton, Drawer } from '@mui/material';
+import { Box, Tabs, Tab, useTheme, IconButton, Drawer, Typography } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
@@ -891,6 +891,13 @@ function TopologyEditorInner() {
             </Controls>
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
             <LayoutHandler layoutVersion={layoutVersion} />
+            {nodes.length === 0 && simulation.simNodes.length === 0 && (
+              <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none',}}>
+                <Typography variant="h5" sx={{ color: 'text.disabled', userSelect: 'none'}}>
+                  Right-click to add your first node
+                </Typography>
+              </Box>
+            )}
           </ReactFlow>
         </Box>
 
