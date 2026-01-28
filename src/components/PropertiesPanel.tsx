@@ -93,8 +93,8 @@ function PanelCard({
       variant="outlined"
       sx={{
         p: '0.5rem',
-        bgcolor: highlighted ? 'action.hover' : undefined,
-        borderColor: 'divider',
+        bgcolor: highlighted ? 'action.hover' : 'var(--mui-palette-card-bg)',
+        borderColor: 'var(--mui-palette-card-border)',
         "&:hover": highlighted ? {
           borderColor: 'action.disabled',
         } : undefined,
@@ -107,6 +107,11 @@ function PanelCard({
 
 import { useTopologyStore } from "../lib/store";
 import { formatName } from "../lib/utils";
+import {
+  getInheritedNodeLabels,
+  getInheritedLinkLabels,
+  getInheritedLagLabels,
+} from "../lib/labels";
 import {
   NODE_PROFILE_SUGGESTIONS,
   PLATFORM_SUGGESTIONS,
@@ -288,7 +293,11 @@ export function SelectionPanel() {
               ))}
             </Select>
           </FormControl>
-          <InheritedLabels labels={nodeTemplates.find(t => t.name === nodeData.template)?.labels} />
+          <EditableLabelsSection
+            labels={nodeData.labels}
+            inheritedLabels={getInheritedNodeLabels(selectedNode, nodeTemplates)}
+            onUpdate={(labels) => handleUpdateNodeField({ labels })}
+          />
         </Box>
 
         {allConnectedEdges.length > 0 && (
@@ -313,7 +322,7 @@ export function SelectionPanel() {
                     <Paper
                       key={edge.id}
                       variant="outlined"
-                      sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
+                      sx={{ p: '0.5rem', cursor: "pointer", bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
                       onClick={() => useTopologyStore.getState().selectEdge(edge.id)}
                     >
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -336,7 +345,7 @@ export function SelectionPanel() {
                   <Paper
                     key={lag.id}
                     variant="outlined"
-                    sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
+                    sx={{ p: '0.5rem', cursor: "pointer", bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
                     onClick={() => {
                       useTopologyStore.getState().selectEdge(edge.id);
                       useTopologyStore.getState().selectLag(edge.id, lag.id);
@@ -366,7 +375,7 @@ export function SelectionPanel() {
                     <Paper
                       key={`${edge.id}-${idx}`}
                       variant="outlined"
-                      sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
+                      sx={{ p: '0.5rem', cursor: "pointer", bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
                       onClick={() => {
                         useTopologyStore.getState().selectEdge(edge.id);
                         useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
@@ -511,7 +520,11 @@ export function SelectionPanel() {
                 ))}
               </Select>
             </FormControl>
-            <InheritedLabels labels={linkTemplates.find(t => t.name === selectedLag.template)?.labels} />
+            <EditableLabelsSection
+              labels={selectedLag.labels}
+              inheritedLabels={getInheritedLagLabels(selectedLag, linkTemplates)}
+              onUpdate={(labels) => handleUpdateLagGroup(selectedLag.id, { labels })}
+            />
           </Box>
 
           <PanelSection
@@ -532,7 +545,7 @@ export function SelectionPanel() {
                 <Paper
                   key={index}
                   variant="outlined"
-                  sx={{ p: '0.5rem', borderColor: 'divider' }}
+                  sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
                 >
                   <Box
                     sx={{
@@ -648,7 +661,6 @@ export function SelectionPanel() {
                 ))}
               </Select>
             </FormControl>
-            <InheritedLabels labels={linkTemplates.find(t => t.name === memberLinks[0]?.template)?.labels} />
           </Box>
 
           <PanelSection
@@ -662,7 +674,7 @@ export function SelectionPanel() {
                   <Paper
                     key={index}
                     variant="outlined"
-                    sx={{ p: '0.5rem', borderColor: 'divider' }}
+                    sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
                   >
                     <Box
                       sx={{
@@ -778,7 +790,7 @@ export function SelectionPanel() {
               <Paper
                 key={index}
                 variant="outlined"
-                sx={{ p: '0.5rem', borderColor: 'divider' }}
+                sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
               >
                 <Box sx={{ display: "flex", flexDirection: "column", gap: '0.75rem' }}>
                   <Box
@@ -907,11 +919,15 @@ export function SelectionPanel() {
                   ))}
                 </Select>
               </FormControl>
-              <InheritedLabels labels={linkTemplates.find(t => t.name === link.template)?.labels} />
+              <EditableLabelsSection
+                labels={link.labels}
+                inheritedLabels={getInheritedLinkLabels(link, linkTemplates)}
+                onUpdate={(labels) => handleUpdateLink(index, { labels })}
+              />
             </Box>
 
             <PanelSection title="Endpoints">
-              <Paper variant="outlined" sx={{ p: '0.5rem', borderColor: 'divider' }}>
+              <Paper variant="outlined" sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}>
                 <Box
                   sx={{
                     display: "grid",
@@ -988,20 +1004,105 @@ export function SelectionPanel() {
   );
 }
 
+const TOPOBUILDER_LABEL_PREFIX = 'topobuilder.eda.labs/';
+
 function InheritedLabels({ labels }: { labels?: Record<string, string> }) {
-  if (!labels || Object.keys(labels).length === 0) return null;
+  const filteredLabels = Object.entries(labels || {}).filter(
+    ([key]) => !key.startsWith(TOPOBUILDER_LABEL_PREFIX)
+  );
+  if (filteredLabels.length === 0) return null;
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', mt: '0.5rem' }}>
-      <Typography variant="body2" color="text.primary" fontWeight={600}>
-        Inherited labels
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+      <Typography variant="body2" color="text.secondary" fontWeight={600}>
+        Inherited Labels
       </Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-        {Object.entries(labels).map(([key, value]) => (
+        {filteredLabels.map(([key, value]) => (
           <Chip
             key={key}
             label={`${key}=${value}`}
             size="small"
             variant="outlined"
+            sx={{
+              bgcolor: 'var(--mui-palette-card-bg)',
+              borderColor: 'var(--mui-palette-card-border)',
+            }}
+          />
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
+function EditableLabelsSection({
+  labels,
+  inheritedLabels,
+  onUpdate,
+}: {
+  labels?: Record<string, string>;
+  inheritedLabels?: Record<string, string>;
+  onUpdate: (labels: Record<string, string>) => void;
+}) {
+  const handleAddLabel = () => {
+    let counter = 1;
+    let newKey = `eda.nokia.com/label-${counter}`;
+    while (labels?.[newKey] || inheritedLabels?.[newKey]) {
+      counter++;
+      newKey = `eda.nokia.com/label-${counter}`;
+    }
+    onUpdate({ ...labels, [newKey]: "" });
+  };
+
+  const handleUpdateLabel = (oldKey: string, newKey: string, value: string) => {
+    const newLabels = { ...labels };
+    if (oldKey !== newKey) {
+      delete newLabels[oldKey];
+    }
+    newLabels[newKey] = value;
+    onUpdate(newLabels);
+  };
+
+  const handleDeleteLabel = (key: string) => {
+    const newLabels = { ...labels };
+    delete newLabels[key];
+    onUpdate(newLabels);
+  };
+
+  const hasVisibleInheritedLabels = Object.keys(inheritedLabels || {}).some(
+    key => !key.startsWith(TOPOBUILDER_LABEL_PREFIX)
+  );
+
+  return (
+    <Box>
+      <InheritedLabels labels={inheritedLabels} />
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          pb: '0.25rem',
+          mb: '0.5rem',
+          mt: hasVisibleInheritedLabels ? '0.75rem' : 0,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+          Labels
+        </Typography>
+        <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
+          Add
+        </Button>
+      </Box>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: '0.5rem' }}>
+        {Object.entries(labels || {}).map(([key, value]) => (
+          <LabelEditor
+            key={key}
+            labelKey={key}
+            labelValue={value}
+            onUpdate={(newKey, newValue) => handleUpdateLabel(key, newKey, newValue)}
+            onDelete={() => handleDeleteLabel(key)}
+            disableSuggestions
           />
         ))}
       </Box>
@@ -1462,7 +1563,26 @@ function LinkTemplateEditor({
           </Button>
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column", gap: '0.75rem' }}>
-          {Object.entries(template.labels || {}).map(([key, value]) => (
+          <Box sx={{ display: "grid", gridTemplateColumns: "65fr 35fr auto", gap: '0.5rem', alignItems: "center" }}>
+            <TextField
+              size="small"
+              label="Key"
+              value="eda.nokia.com/role"
+              disabled
+              fullWidth
+            />
+            <TextField
+              size="small"
+              label="Value"
+              value={template.type || 'interSwitch'}
+              disabled
+              fullWidth
+            />
+            <Box sx={{ width: 32 }} />
+          </Box>
+          {Object.entries(template.labels || {})
+            .filter(([key]) => key !== 'eda.nokia.com/role')
+            .map(([key, value]) => (
             <LabelEditor
               key={key}
               labelKey={key}
@@ -1637,7 +1757,7 @@ function SimNodeSelectionEditor({
                   <Paper
                     key={edge.id}
                     variant="outlined"
-                    sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
+                    sx={{ p: '0.5rem', cursor: "pointer", bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
                     onClick={() => useTopologyStore.getState().selectEdge(edge.id)}
                   >
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1660,7 +1780,7 @@ function SimNodeSelectionEditor({
                 <Paper
                   key={lag.id}
                   variant="outlined"
-                  sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
+                  sx={{ p: '0.5rem', cursor: "pointer", bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
                   onClick={() => {
                     useTopologyStore.getState().selectEdge(edge.id);
                     useTopologyStore.getState().selectLag(edge.id, lag.id);
@@ -1690,7 +1810,7 @@ function SimNodeSelectionEditor({
                   <Paper
                     key={`${edge.id}-${idx}`}
                     variant="outlined"
-                    sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
+                    sx={{ p: '0.5rem', cursor: "pointer", bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
                     onClick={() => {
                       useTopologyStore.getState().selectEdge(edge.id);
                       useTopologyStore.getState().selectMemberLink(edge.id, idx, false);

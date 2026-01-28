@@ -11,7 +11,7 @@ import type {
 } from '../types/topology';
 import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE, LABEL_EDGE_ID, LABEL_MEMBER_INDEX, DEFAULT_INTERFACE, DEFAULT_SIM_INTERFACE } from './constants';
 
-interface ExportOptions {
+export interface ExportOptions {
   topologyName: string;
   namespace: string;
   operation: Operation;
@@ -22,7 +22,7 @@ interface ExportOptions {
   simulation?: Simulation;
 }
 
-interface YamlLink {
+export interface YamlLink {
   name?: string;
   encapType?: string | null;
   template?: string;
@@ -35,7 +35,7 @@ interface YamlLink {
   }>;
 }
 
-interface NetworkTopologyCrd {
+export interface NetworkTopologyCrd {
   apiVersion: string;
   kind: string;
   metadata: {
@@ -52,7 +52,7 @@ interface NetworkTopologyCrd {
   };
 }
 
-export function exportToYaml(options: ExportOptions): string {
+export function buildCrd(options: ExportOptions): NetworkTopologyCrd {
   const {
     topologyName,
     namespace,
@@ -93,9 +93,10 @@ export function exportToYaml(options: ExportOptions): string {
       if (node.data.nodeProfile) {
         networkNode.nodeProfile = node.data.nodeProfile;
       }
-      if (node.data.labels) {
-        Object.assign(labels, node.data.labels);
-      }
+    }
+
+    if (node.data.labels) {
+      Object.assign(labels, node.data.labels);
     }
 
     networkNode.labels = labels;
@@ -228,7 +229,7 @@ export function exportToYaml(options: ExportOptions): string {
 
         lagLink = {
           name: lag.name,
-          labels: createPosLabels(firstMemberIndex),
+          labels: { ...lag.labels, ...createPosLabels(firstMemberIndex) },
           endpoints: lagMemberLinks.map(member => ({
             local: {
               node: topoNodeName,
@@ -247,7 +248,7 @@ export function exportToYaml(options: ExportOptions): string {
       } else {
         lagLink = {
           name: lag.name,
-          labels: createPosLabels(firstMemberIndex),
+          labels: { ...lag.labels, ...createPosLabels(firstMemberIndex) },
           endpoints: [
             ...lagMemberLinks.map(member => ({
               local: {
@@ -283,7 +284,7 @@ export function exportToYaml(options: ExportOptions): string {
         simLinks.push({
           name: member.name,
           template: member.template,
-          labels: createPosLabels(i),
+          labels: { ...member.labels, ...createPosLabels(i) },
           endpoints: [{
             local: {
               node: sourceName,
@@ -301,7 +302,7 @@ export function exportToYaml(options: ExportOptions): string {
         simLinks.push({
           name: member.name,
           template: member.template,
-          labels: createPosLabels(i),
+          labels: { ...member.labels, ...createPosLabels(i) },
           endpoints: [{
             local: {
               node: targetName,
@@ -317,7 +318,7 @@ export function exportToYaml(options: ExportOptions): string {
         // Regular ISL link between two topology nodes
         const link: YamlLink = {
           name: member.name,
-          labels: createPosLabels(i),
+          labels: { ...member.labels, ...createPosLabels(i) },
           endpoints: [
             {
               local: {
@@ -376,6 +377,11 @@ export function exportToYaml(options: ExportOptions): string {
     crd.spec.simulation = cleanSimulation as any;
   }
 
+  return crd;
+}
+
+export function exportToYaml(options: ExportOptions): string {
+  const crd = buildCrd(options);
   return yaml.dump(crd, {
     indent: 2,
     lineWidth: -1,

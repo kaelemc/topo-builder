@@ -1739,6 +1739,13 @@ export const useTopologyStore = create<TopologyStore>()(
                 ? { x: parseFloat(labelX), y: parseFloat(labelY) }
                 : null;
 
+              const userLabels = node.labels
+                ? Object.fromEntries(
+                    Object.entries(node.labels).filter(([k]) => !k.startsWith('topobuilder.eda.labs/'))
+                  )
+                : undefined;
+              const hasUserLabels = userLabels && Object.keys(userLabels).length > 0;
+
               return {
                 id,
                 type: 'deviceNode',
@@ -1749,7 +1756,7 @@ export const useTopologyStore = create<TopologyStore>()(
                   platform,
                   template: node.template,
                   nodeProfile,
-                  labels: node.labels,
+                  labels: hasUserLabels ? userLabels : undefined,
                 },
               };
             });
@@ -1920,6 +1927,13 @@ export const useTopologyStore = create<TopologyStore>()(
 
                 const isLag = endpoints.length > 1 && endpoints.every(ep => ep.local?.node && ep.remote?.node);
 
+                const userLabels = link.labels
+                  ? Object.fromEntries(
+                      Object.entries(link.labels).filter(([k]) => !k.startsWith('topobuilder.eda.labs/'))
+                    )
+                  : undefined;
+                const hasUserLabels = userLabels && Object.keys(userLabels).length > 0;
+
                 if (isLag) {
                   const startIdx = edgeData.memberLinks.length;
                   const lagMemberIndices: number[] = [];
@@ -1939,6 +1953,7 @@ export const useTopologyStore = create<TopologyStore>()(
                     name: link.name,
                     template: link.template,
                     memberLinkIndices: lagMemberIndices,
+                    labels: hasUserLabels ? userLabels : undefined,
                   });
                 } else {
                   edgeData.memberLinks.push({
@@ -1946,6 +1961,7 @@ export const useTopologyStore = create<TopologyStore>()(
                     template: link.template,
                     sourceInterface: firstEndpoint.local!.interface || DEFAULT_INTERFACE,
                     targetInterface: firstEndpoint.remote!.interface || DEFAULT_INTERFACE,
+                    labels: hasUserLabels ? userLabels : undefined,
                   });
                 }
               }

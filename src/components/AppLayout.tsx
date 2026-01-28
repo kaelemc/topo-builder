@@ -47,16 +47,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const setDarkMode = useTopologyStore((state) => state.setDarkMode);
 
   const theme = useMemo(() => createTheme({
+    cssVariables: true,
     palette: {
       mode: darkMode ? 'dark' : 'light',
       primary: { main: '#7d33f2', light: '#9a5ff5', dark: '#5c1fd4' },
+      card: {
+        bg: darkMode ? '#262626' : '#f5f5f5',
+        border: darkMode ? '#424242' : '#e0e0e0',
+      },
     },
     components: {
       MuiPaper: {
         styleOverrides: {
           outlined: {
-            backgroundColor: darkMode ? '#262626' : '#f5f5f5',
-            borderColor: darkMode ? '#424242' : '#e0e0e0',
+            backgroundColor: 'var(--mui-palette-card-bg)',
+            borderColor: 'var(--mui-palette-card-border)',
           },
         },
       },

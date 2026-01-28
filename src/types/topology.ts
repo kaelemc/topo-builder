@@ -27,6 +27,7 @@ export interface MemberLink {
   template?: string;
   sourceInterface: string;
   targetInterface: string;
+  labels?: Record<string, string>;
 }
 
 export interface LagGroup {
@@ -34,6 +35,7 @@ export interface LagGroup {
   name: string;
   template?: string;
   memberLinkIndices: number[];
+  labels?: Record<string, string>;
 }
 
 export interface MultihomeMemberLink {
