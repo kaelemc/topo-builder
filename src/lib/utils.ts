@@ -53,3 +53,54 @@ export const generateCopyName = (originalName: string, existingNames: string[]):
 };
 
 export const formatName = (value: string): string => value.replace(/\s+/g, '-').toLowerCase();
+
+export interface ParsedEndpoint {
+  sourceName: string;
+  targetName: string | null;
+  sourceInterface: string;
+  targetInterface: string | null;
+}
+
+export interface YamlEndpoint {
+  local?: { node: string; interface?: string };
+  remote?: { node: string; interface?: string };
+  sim?: { simNode?: string; simNodeInterface?: string; node?: string; interface?: string };
+  type?: string;
+}
+
+export function parseYamlEndpoint(ep: YamlEndpoint, defaultInterface: string, defaultSimInterface: string): ParsedEndpoint | null {
+  if (ep.local?.node && ep.remote?.node) {
+    return {
+      sourceName: ep.local.node,
+      targetName: ep.remote.node,
+      sourceInterface: ep.local.interface || defaultInterface,
+      targetInterface: ep.remote.interface || defaultInterface,
+    };
+  }
+  if (ep.local?.node && (ep.sim?.simNode || ep.sim?.node)) {
+    const simName = ep.sim!.simNode || ep.sim!.node;
+    return {
+      sourceName: simName!,
+      targetName: ep.local.node,
+      sourceInterface: ep.sim?.simNodeInterface || ep.sim?.interface || defaultSimInterface,
+      targetInterface: ep.local.interface || defaultInterface,
+    };
+  }
+  if (ep.local?.node) {
+    return {
+      sourceName: ep.local.node,
+      targetName: null,
+      sourceInterface: ep.local.interface || defaultInterface,
+      targetInterface: null,
+    };
+  }
+  return null;
+}
+
+export function filterUserLabels(labels?: Record<string, string>): Record<string, string> | undefined {
+  if (!labels) return undefined;
+  const filtered = Object.fromEntries(
+    Object.entries(labels).filter(([k]) => !k.startsWith('topobuilder.eda.labs/'))
+  );
+  return Object.keys(filtered).length > 0 ? filtered : undefined;
+}

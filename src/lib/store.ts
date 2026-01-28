@@ -10,6 +10,8 @@ import {
   generateCopyName,
   getNameError,
   validateName,
+  parseYamlEndpoint,
+  filterUserLabels,
 } from './utils';
 import type {
   TopologyNodeData,
@@ -1762,239 +1764,144 @@ export const useTopologyStore = create<TopologyStore>()(
             });
             updates.nodes = newNodes;
 
-            // Parse links and map node names to IDs
             if (parsed.spec?.links && Array.isArray(parsed.spec.links)) {
-              const nameToNewId = new Map<string, string>();
-              newNodes.forEach(n => nameToNewId.set(n.data.name, n.id));
+              const nameToId = new Map<string, string>();
+              newNodes.forEach(n => nameToId.set(n.data.name, n.id));
+              simNodeIdMap.forEach((id, name) => nameToId.set(name, id));
 
-              // Add simNode IDs to the mapping (using pre-generated IDs)
-              simNodeIdMap.forEach((id, name) => nameToNewId.set(name, id));
-
-              // Group all links by node pair + handles
-              interface EdgeData {
+              interface EdgeGroup {
                 memberLinks: MemberLink[];
-                lagGroups: { id: string; name: string; template?: string; memberLinkIndices: number[] }[];
+                lagGroups: { id: string; name: string; template?: string; memberLinkIndices: number[]; labels?: Record<string, string> }[];
                 sourceHandle: string;
                 targetHandle: string;
                 sourceName: string;
                 targetName: string;
               }
-              const edgesByPair = new Map<string, EdgeData>();
-
+              const edgesByPair = new Map<string, EdgeGroup>();
               const esiLagEdges: Edge<TopologyEdgeData>[] = [];
 
               for (const link of parsed.spec.links) {
                 const endpoints = link.endpoints || [];
                 if (endpoints.length === 0) continue;
 
-                const isSimEsiLag = endpoints.length >= 2 &&
-                  endpoints.every(ep => ep.local?.node && (ep.sim?.node || ep.sim?.simNode) && !ep.remote?.node);
-
-                if (isSimEsiLag) {
-                  const firstSimName = endpoints[0].sim?.node || endpoints[0].sim?.simNode;
-                  if (!firstSimName) continue;
-
-                  const simNodeId = nameToNewId.get(firstSimName);
-                  if (!simNodeId) continue;
-
-                  const leafInfoList: Array<{ name: string; localInterface: string; simInterface: string }> = [];
-                  for (const ep of endpoints) {
-                    if (ep.local?.node) {
-                      leafInfoList.push({
-                        name: ep.local.node,
-                        localInterface: ep.local.interface || DEFAULT_INTERFACE,
-                        simInterface: ep.sim?.interface || ep.sim?.simNodeInterface || DEFAULT_INTERFACE,
-                      });
-                    }
-                  }
-
-                  if (leafInfoList.length >= 2 && leafInfoList.every(l => nameToNewId.has(l.name))) {
-                    const edgeId = `edge-${edgeIdCounter++}`;
-                    const firstLeaf = leafInfoList[0];
-
-                    const esiLeaves = leafInfoList.map(leaf => ({
-                      nodeId: nameToNewId.get(leaf.name)!,
-                      nodeName: leaf.name,
-                      leafHandle: 'top-target',
-                      sourceHandle: 'bottom',
-                    }));
-
-                    const userLabels = link.labels
-                      ? Object.fromEntries(
-                          Object.entries(link.labels).filter(([k]) => !k.startsWith('topobuilder.eda.labs/'))
-                        )
-                      : undefined;
-                    const hasUserLabels = userLabels && Object.keys(userLabels).length > 0;
-
-                    const memberLinks = leafInfoList.map((leaf, i) => ({
-                      name: `${firstSimName}-${leaf.name}-${i + 1}`,
-                      sourceInterface: leaf.simInterface,
-                      targetInterface: leaf.localInterface,
-                      labels: i === 0 && hasUserLabels ? userLabels : undefined,
-                    }));
-
-                    esiLagEdges.push({
-                      id: edgeId,
-                      type: 'linkEdge',
-                      source: simNodeId,
-                      target: nameToNewId.get(firstLeaf.name)!,
-                      sourceHandle: 'bottom',
-                      targetHandle: 'top-target',
-                      data: {
-                        id: edgeId,
-                        sourceNode: firstSimName,
-                        targetNode: firstLeaf.name,
-                        isMultihomed: true,
-                        esiLeaves,
-                        memberLinks,
-                        esiLagName: link.name || `${firstSimName}-esi-lag`,
-                      },
-                    });
-                  }
-                  continue;
-                }
-
-                const isEsiLag = endpoints.length >= 3 &&
-                  endpoints.every(ep => ep.local?.node && !ep.remote?.node);
-
-                if (isEsiLag) {
-                  const nodeInfoList: Array<{ name: string; interface: string }> = [];
-                  for (const ep of endpoints) {
-                    if (ep.local?.node) {
-                      nodeInfoList.push({
-                        name: ep.local.node,
-                        interface: ep.local.interface || DEFAULT_INTERFACE,
-                      });
-                    }
-                  }
-
-                  if (nodeInfoList.length >= 2 && nodeInfoList.every(n => nameToNewId.has(n.name))) {
-                    const sourceNode = nodeInfoList[0];
-                    const leafNodes = nodeInfoList.slice(1);
-
-                    const edgeId = `edge-${edgeIdCounter++}`;
-                    const firstLeaf = leafNodes[0];
-
-                    const esiLeaves = leafNodes.map(leaf => ({
-                      nodeId: nameToNewId.get(leaf.name)!,
-                      nodeName: leaf.name,
-                      leafHandle: 'top-target',
-                      sourceHandle: 'bottom',
-                    }));
-
-                    const userLabels = link.labels
-                      ? Object.fromEntries(
-                          Object.entries(link.labels).filter(([k]) => !k.startsWith('topobuilder.eda.labs/'))
-                        )
-                      : undefined;
-                    const hasUserLabels = userLabels && Object.keys(userLabels).length > 0;
-
-                    const memberLinks = leafNodes.map((leaf, i) => ({
-                      name: `${sourceNode.name}-${leaf.name}-${i + 1}`,
-                      sourceInterface: sourceNode.interface,
-                      targetInterface: leaf.interface,
-                      labels: i === 0 && hasUserLabels ? userLabels : undefined,
-                    }));
-
-                    esiLagEdges.push({
-                      id: edgeId,
-                      type: 'linkEdge',
-                      source: nameToNewId.get(sourceNode.name)!,
-                      target: nameToNewId.get(firstLeaf.name)!,
-                      sourceHandle: 'bottom',
-                      targetHandle: 'top-target',
-                      data: {
-                        id: edgeId,
-                        sourceNode: sourceNode.name,
-                        targetNode: firstLeaf.name,
-                        isMultihomed: true,
-                        esiLeaves,
-                        memberLinks,
-                        esiLagName: link.name || `${sourceNode.name}-esi-lag`,
-                      },
-                    });
-                  }
-                  continue;
-                }
-
-                const firstEndpoint = endpoints[0];
-                const hasRemote = firstEndpoint?.remote?.node;
-                const hasLocal = firstEndpoint?.local?.node;
-
-                if (!hasRemote || !hasLocal) {
-                  // Skip non-ISL links (edge links, sim links, etc.)
-                  continue;
-                }
-
-                const sourceName = firstEndpoint.local!.node;
-                const targetName = firstEndpoint.remote!.node;
-
-                // Skip if source or target node doesn't exist
-                if (!nameToNewId.has(sourceName) || !nameToNewId.has(targetName)) {
-                  continue;
-                }
-
+                const userLabels = filterUserLabels(link.labels);
                 const sourceHandle = link.labels?.[LABEL_SRC_HANDLE] || 'bottom';
                 const targetHandle = link.labels?.[LABEL_DST_HANDLE] || 'top-target';
-                const pairKey = [sourceName, targetName].sort().join('|') + `|${sourceHandle}|${targetHandle}`;
 
-                if (!edgesByPair.has(pairKey)) {
-                  edgesByPair.set(pairKey, { memberLinks: [], lagGroups: [], sourceHandle, targetHandle, sourceName, targetName });
+                const parsedEndpoints = endpoints.map(ep => parseYamlEndpoint(ep, DEFAULT_INTERFACE, DEFAULT_SIM_INTERFACE)).filter(Boolean);
+                const uniqueTargets = new Set(parsedEndpoints.map(p => p?.targetName).filter(Boolean));
+                const isEsiLag = parsedEndpoints.length >= 2 && uniqueTargets.size >= 2;
+
+                if (isEsiLag) {
+                  const first = parsedEndpoints[0]!;
+                  const commonName = first.sourceName;
+                  const commonId = nameToId.get(commonName);
+                  if (!commonId) continue;
+
+                  const leaves = parsedEndpoints
+                    .filter(p => p?.targetName && nameToId.has(p.targetName))
+                    .map(p => ({
+                      name: p!.targetName!,
+                      nodeId: nameToId.get(p!.targetName!)!,
+                      sourceInterface: p!.sourceInterface,
+                      targetInterface: p!.targetInterface || DEFAULT_INTERFACE,
+                    }));
+
+                  if (leaves.length < 2) continue;
+
+                  const edgeId = `edge-${edgeIdCounter++}`;
+                  esiLagEdges.push({
+                    id: edgeId,
+                    type: 'linkEdge',
+                    source: commonId,
+                    target: leaves[0].nodeId,
+                    sourceHandle,
+                    targetHandle,
+                    data: {
+                      id: edgeId,
+                      sourceNode: commonName,
+                      targetNode: leaves[0].name,
+                      isMultihomed: true,
+                      esiLeaves: leaves.map(l => ({
+                        nodeId: l.nodeId,
+                        nodeName: l.name,
+                        leafHandle: targetHandle,
+                        sourceHandle,
+                      })),
+                      memberLinks: leaves.map((l, i) => ({
+                        name: `${commonName}-${l.name}-${i + 1}`,
+                        sourceInterface: l.sourceInterface,
+                        targetInterface: l.targetInterface,
+                        labels: i === 0 ? userLabels : undefined,
+                      })),
+                      esiLagName: link.name || `${commonName}-esi-lag`,
+                    },
+                  });
+                  continue;
                 }
-                const edgeData = edgesByPair.get(pairKey)!;
 
-                const isLag = endpoints.length > 1 && endpoints.every(ep => ep.local?.node && ep.remote?.node);
+                const first = parsedEndpoints[0];
+                if (!first || !first.targetName) continue;
 
-                const userLabels = link.labels
-                  ? Object.fromEntries(
-                      Object.entries(link.labels).filter(([k]) => !k.startsWith('topobuilder.eda.labs/'))
-                    )
-                  : undefined;
-                const hasUserLabels = userLabels && Object.keys(userLabels).length > 0;
+                const { sourceName, targetName } = first;
+                if (!nameToId.has(sourceName) || !nameToId.has(targetName)) continue;
 
-                if (isLag) {
-                  const startIdx = edgeData.memberLinks.length;
-                  const lagMemberIndices: number[] = [];
+                const pairKey = [sourceName, targetName].sort().join('|') + `|${sourceHandle}|${targetHandle}`;
+                if (!edgesByPair.has(pairKey)) {
+                  edgesByPair.set(pairKey, {
+                    memberLinks: [],
+                    lagGroups: [],
+                    sourceHandle,
+                    targetHandle,
+                    sourceName,
+                    targetName,
+                  });
+                }
+                const edgeGroup = edgesByPair.get(pairKey)!;
 
-                  endpoints.forEach((ep, idx) => {
-                    edgeData.memberLinks.push({
-                      name: `${link.name}-${idx + 1}`,
+                const linkName = link.name || `${sourceName}-${targetName}`;
+
+                if (endpoints.length > 1) {
+                  const startIdx = edgeGroup.memberLinks.length;
+                  const lagIndices: number[] = [];
+
+                  parsedEndpoints.forEach((p, idx) => {
+                    if (!p) return;
+                    edgeGroup.memberLinks.push({
+                      name: `${linkName}-${idx + 1}`,
                       template: link.template,
-                      sourceInterface: ep.local!.interface || DEFAULT_INTERFACE,
-                      targetInterface: ep.remote!.interface || DEFAULT_INTERFACE,
+                      sourceInterface: p.sourceInterface,
+                      targetInterface: p.targetInterface || DEFAULT_INTERFACE,
                     });
-                    lagMemberIndices.push(startIdx + idx);
+                    lagIndices.push(startIdx + idx);
                   });
 
-                  edgeData.lagGroups.push({
-                    id: `lag-${pairKey}-${edgeData.lagGroups.length + 1}`,
-                    name: link.name,
+                  edgeGroup.lagGroups.push({
+                    id: `lag-${pairKey}-${edgeGroup.lagGroups.length + 1}`,
+                    name: linkName,
                     template: link.template,
-                    memberLinkIndices: lagMemberIndices,
-                    labels: hasUserLabels ? userLabels : undefined,
+                    memberLinkIndices: lagIndices,
+                    labels: userLabels,
                   });
                 } else {
-                  edgeData.memberLinks.push({
-                    name: link.name,
+                  edgeGroup.memberLinks.push({
+                    name: linkName,
                     template: link.template,
-                    sourceInterface: firstEndpoint.local!.interface || DEFAULT_INTERFACE,
-                    targetInterface: firstEndpoint.remote!.interface || DEFAULT_INTERFACE,
-                    labels: hasUserLabels ? userLabels : undefined,
+                    sourceInterface: first.sourceInterface,
+                    targetInterface: first.targetInterface || DEFAULT_INTERFACE,
+                    labels: userLabels,
                   });
                 }
               }
 
-              // Create one edge per node pair + handle combination
               const newEdges: Edge<TopologyEdgeData>[] = [];
               for (const [, { memberLinks, lagGroups, sourceHandle, targetHandle, sourceName, targetName }] of edgesByPair) {
-                const sourceId = nameToNewId.get(sourceName)!;
-                const targetId = nameToNewId.get(targetName)!;
-
-                // Check if edge already exists with same handles
+                const sourceId = nameToId.get(sourceName)!;
+                const targetId = nameToId.get(targetName)!;
                 const existingEdge = currentEdges.find(
                   e => ((e.source === sourceId && e.target === targetId) ||
-                    (e.source === targetId && e.target === sourceId)) &&
-                    e.sourceHandle === sourceHandle && e.targetHandle === targetHandle
+                        (e.source === targetId && e.target === sourceId)) &&
+                       e.sourceHandle === sourceHandle && e.targetHandle === targetHandle
                 );
                 const id = existingEdge?.id || `edge-${edgeIdCounter++}`;
 
