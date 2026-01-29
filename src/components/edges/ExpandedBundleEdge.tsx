@@ -103,6 +103,7 @@ export default function ExpandedBundleEdge({
                 stroke={isSelectedMemberLink ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
                 strokeWidth={1}
                 strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
+                pointerEvents="none"
               />
             </g>
           );
@@ -129,6 +130,7 @@ export default function ExpandedBundleEdge({
                   stroke={isLagSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
                   strokeWidth={1}
                   strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
+                  pointerEvents="none"
                 />
               </g>
               <EdgeLabelRenderer>

@@ -644,9 +644,24 @@ export const useTopologyStore = create<TopologyStore>()(
       onEdgesChange: (changes: EdgeChange<Edge<TopologyEdgeData>>[]) => {
         const currentEdges = get().edges;
         const esiLagEdgeIds = new Set(currentEdges.filter(e => e.data?.isMultihomed).map(e => e.id));
+        const expandedEdgeIds = get().expandedEdges;
+        const currentSelectedEdgeId = get().selectedEdgeId;
+        const currentMemberLinkIndices = get().selectedMemberLinkIndices;
+        const currentLagId = get().selectedLagId;
 
         const allowedChanges = changes.filter(c => {
           if (c.type === 'remove' && esiLagEdgeIds.has(c.id)) return false;
+          if (c.type === 'select') {
+            const edge = currentEdges.find(e => e.id === c.id);
+            const isExpanded = expandedEdgeIds.has(c.id);
+            const hasMemberLinks = (edge?.data?.memberLinks?.length || 0) > 1;
+            if (isExpanded && hasMemberLinks) {
+              return false;
+            }
+            if (c.id === currentSelectedEdgeId && (currentMemberLinkIndices.length > 0 || currentLagId)) {
+              return false;
+            }
+          }
           return true;
         });
 

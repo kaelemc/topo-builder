@@ -171,8 +171,11 @@ function TopologyEditorInner() {
     deleteNode,
     deleteEdge,
     addMemberLink,
+    updateMemberLink,
     deleteMemberLink,
     clearMemberLinkSelection,
+    selectedLagId,
+    updateEdge,
     addSimNode,
     deleteSimNode,
     simulation,
@@ -187,6 +190,7 @@ function TopologyEditorInner() {
     triggerYamlRefresh,
     darkMode,
     nodeTemplates,
+    linkTemplates,
     pasteSelection,
     createLagFromMemberLinks,
     createMultihomedLag,
@@ -645,11 +649,16 @@ function TopologyEditorInner() {
     if (!showSimNodes && (edge.source.startsWith('sim-') || edge.target.startsWith('sim-'))) {
       return;
     }
+    const isExpanded = expandedEdges.has(edge.id);
+    const hasMemberLinks = (edge.data?.memberLinks?.length || 0) > 1;
+    if (isExpanded && hasMemberLinks) {
+      return;
+    }
     selectEdge(edge.id, event.shiftKey);
     if (activeTab === 0 && edge.data && (edge.data.memberLinks?.length || 0) === 1) {
       jumpToLinkInEditor(edge.data.sourceNode, edge.data.targetNode);
     }
-  }, [selectEdge, activeTab, showSimNodes]);
+  }, [selectEdge, activeTab, showSimNodes, expandedEdges]);
 
   const handleEdgeDoubleClick = useCallback((_event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
     const linkCount = edge.data?.memberLinks?.length || 0;
@@ -690,6 +699,16 @@ function TopologyEditorInner() {
     if (!showSimNodes && (edge.source.startsWith('sim-') || edge.target.startsWith('sim-'))) {
       return;
     }
+    const isExpanded = expandedEdges.has(edge.id);
+    const hasMemberLinks = (edge.data?.memberLinks?.length || 0) > 1;
+    if (isExpanded && hasMemberLinks) {
+      setContextMenu({
+        open: true,
+        position: { x: event.clientX, y: event.clientY },
+        flowPosition: { x: 0, y: 0 },
+      });
+      return;
+    }
     // If this edge is already in the selection, preserve multi-selection
     // Otherwise, select just this edge (unless shift is held)
     if (!selectedEdgeIds.includes(edge.id)) {
@@ -700,7 +719,7 @@ function TopologyEditorInner() {
       position: { x: event.clientX, y: event.clientY },
       flowPosition: { x: 0, y: 0 },
     });
-  }, [selectEdge, selectedEdgeIds, showSimNodes]);
+  }, [selectEdge, selectedEdgeIds, showSimNodes, expandedEdges]);
 
   const handleCloseContextMenu = () => {
     setContextMenu(prev => ({ ...prev, open: false }));
@@ -817,11 +836,61 @@ function TopologyEditorInner() {
     }
   };
 
+  const handleChangeLinkTemplate = (templateName: string) => {
+    if (!selectedEdgeId) return;
+
+    const edge = edges.find(e => e.id === selectedEdgeId);
+    if (!edge?.data) return;
+
+    if (selectedMemberLinkIndices.length > 0) {
+      selectedMemberLinkIndices.forEach(index => {
+        updateMemberLink(selectedEdgeId, index, { template: templateName });
+      });
+    }
+    else if (selectedLagId) {
+      const lagGroups = edge.data.lagGroups || [];
+      const lag = lagGroups.find(l => l.id === selectedLagId);
+      if (lag) {
+        const updatedLagGroups = lagGroups.map(l =>
+          l.id === selectedLagId ? { ...l, template: templateName } : l
+        );
+        updateEdge(selectedEdgeId, { lagGroups: updatedLagGroups });
+        lag.memberLinkIndices.forEach(index => {
+          updateMemberLink(selectedEdgeId, index, { template: templateName });
+        });
+      }
+    }
+    else {
+      const memberLinks = edge.data.memberLinks || [];
+      memberLinks.forEach((_, index) => {
+        updateMemberLink(selectedEdgeId, index, { template: templateName });
+      });
+    }
+    triggerYamlRefresh();
+  };
+
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
   const currentNodeTemplate = selectedNode?.data?.template;
 
   const selectedSimNode = simulation.simNodes.find(n => n.name === selectedSimNodeName);
   const currentSimNodeTemplate = selectedSimNode?.template;
+
+  const currentLinkTemplate = (() => {
+    if (!selectedEdgeId) return undefined;
+    const edge = edges.find(e => e.id === selectedEdgeId);
+    if (!edge?.data) return undefined;
+
+    if (selectedMemberLinkIndices.length > 0) {
+      const memberLinks = edge.data.memberLinks || [];
+      return memberLinks[selectedMemberLinkIndices[0]]?.template;
+    }
+    
+    if (selectedLagId) {
+      const lag = edge.data.lagGroups?.find(l => l.id === selectedLagId);
+      return lag?.template;
+    }
+    return edge.data.memberLinks?.[0]?.template;
+  })();
 
   const handleAddSimNode = () => {
     const existingNames = simulation.simNodes?.map(n => n.name) || [];
@@ -929,12 +998,15 @@ function TopologyEditorInner() {
         onDeleteSimNode={handleDeleteSimNode}
         onChangeNodeTemplate={handleChangeNodeTemplate}
         onChangeSimNodeTemplate={handleChangeSimNodeTemplate}
+        onChangeLinkTemplate={handleChangeLinkTemplate}
         onCreateLag={handleCreateLag}
         onCreateEsiLag={handleCreateEsiLag}
         onCopy={handleCopy}
         onPaste={handlePaste}
         currentNodeTemplate={currentNodeTemplate}
         currentSimNodeTemplate={currentSimNodeTemplate}
+        linkTemplates={linkTemplates}
+        currentLinkTemplate={currentLinkTemplate}
         onClearAll={clearAll}
         hasSelection={hasSelection}
         hasContent={nodes.length > 0 || edges.length > 0 || simulation.simNodes.length > 0}
