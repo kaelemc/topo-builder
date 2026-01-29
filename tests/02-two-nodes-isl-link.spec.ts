@@ -59,21 +59,23 @@ spec:
       labels:
         eda.nokia.com/role: leaf
         eda.nokia.com/security-profile: managed
+        topobuilder.eda.labs/name-prefix: leaf
       nodeProfile: srlinux-ghcr-25.10.1
       platform: 7220 IXR-D3L
     - name: spine
       labels:
         eda.nokia.com/role: spine
         eda.nokia.com/security-profile: managed
+        topobuilder.eda.labs/name-prefix: spine
       nodeProfile: srlinux-ghcr-25.10.1
       platform: 7220 IXR-D5
   nodes:
-    - name: node1
+    - name: leaf1
       template: leaf
       labels:
         topobuilder.eda.labs/x: "195"
         topobuilder.eda.labs/y: "300"
-    - name: node2
+    - name: leaf2
       template: leaf
       labels:
         topobuilder.eda.labs/x: "345"
@@ -91,7 +93,7 @@ spec:
       labels:
         eda.nokia.com/role: edge
   links:
-    - name: node1-node2-1
+    - name: leaf1-leaf2-1
       labels:
         topobuilder.eda.labs/edgeId: edge-1
         topobuilder.eda.labs/memberIndex: "0"
@@ -99,10 +101,10 @@ spec:
         topobuilder.eda.labs/dstHandle: right-target
       endpoints:
         - local:
-            node: node2
+            node: leaf2
             interface: ethernet-1-1
           remote:
-            node: node1
+            node: leaf1
             interface: ethernet-1-1
       template: isl
   simulation:
@@ -173,21 +175,23 @@ spec:
       labels:
         eda.nokia.com/role: leaf
         eda.nokia.com/security-profile: managed
+        topobuilder.eda.labs/name-prefix: leaf
       nodeProfile: srlinux-ghcr-25.10.1
       platform: 7220 IXR-D3L
     - name: spine
       labels:
         eda.nokia.com/role: spine
         eda.nokia.com/security-profile: managed
+        topobuilder.eda.labs/name-prefix: spine
       nodeProfile: srlinux-ghcr-25.10.1
       platform: 7220 IXR-D5
   nodes:
-    - name: node1
+    - name: leaf1
       template: leaf
       labels:
         topobuilder.eda.labs/x: "195"
         topobuilder.eda.labs/y: "300"
-    - name: node2
+    - name: leaf2
       template: leaf
       labels:
         topobuilder.eda.labs/x: "345"
@@ -205,7 +209,7 @@ spec:
       labels:
         eda.nokia.com/role: edge
   links:
-    - name: node1-node2-1
+    - name: leaf1-leaf2-1
       labels:
         topobuilder.eda.labs/edgeId: edge-1
         topobuilder.eda.labs/memberIndex: "0"
@@ -213,10 +217,10 @@ spec:
         topobuilder.eda.labs/dstHandle: right-target
       endpoints:
         - local:
-            node: node2
+            node: leaf2
             interface: ethernet-1-1
           remote:
-            node: node1
+            node: leaf1
             interface: ethernet-1-3
       template: isl
   simulation:

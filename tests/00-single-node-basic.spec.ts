@@ -29,16 +29,18 @@ spec:
       labels:
         eda.nokia.com/role: leaf
         eda.nokia.com/security-profile: managed
+        topobuilder.eda.labs/name-prefix: leaf
       nodeProfile: srlinux-ghcr-25.10.1
       platform: 7220 IXR-D3L
     - name: spine
       labels:
         eda.nokia.com/role: spine
         eda.nokia.com/security-profile: managed
+        topobuilder.eda.labs/name-prefix: spine
       nodeProfile: srlinux-ghcr-25.10.1
       platform: 7220 IXR-D5
   nodes:
-    - name: node1
+    - name: leaf1
       template: leaf
       labels:
         topobuilder.eda.labs/x: "390"
