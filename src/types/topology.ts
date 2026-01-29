@@ -113,6 +113,16 @@ export interface Simulation {
   topology?: unknown;
 }
 
+export interface Clipboard {
+  nodes: import('@xyflow/react').Node<TopologyNodeData>[];
+  edges: import('@xyflow/react').Edge<TopologyEdgeData>[];
+  simNodes: SimNode[];
+  copiedLink?: {
+    edgeId: string;
+    template?: string;
+  };
+}
+
 export interface TopologyState {
   topologyName: string;
   namespace: string;
@@ -135,4 +145,5 @@ export interface TopologyState {
   darkMode: boolean;
   showSimNodes: boolean;
   error: string | null;
+  clipboard: Clipboard;
 }

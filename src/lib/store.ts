@@ -24,6 +24,7 @@ import type {
   SimNodeTemplate,
   SimNode,
   Simulation,
+  Clipboard,
 } from '../types/topology';
 
 // Types for YAML parsing
@@ -150,6 +151,8 @@ interface TopologyActions {
     copiedEdges: Edge<TopologyEdgeData>[],
     offset: { x: number; y: number }
   ) => void;
+
+  setClipboard: (clipboard: Clipboard) => void;
 }
 
 type TopologyStore = TopologyState & TopologyActions;
@@ -216,6 +219,7 @@ const initialState: TopologyState = {
   darkMode: true,
   showSimNodes: true,
   error: null,
+  clipboard: { nodes: [], edges: [], simNodes: [] },
 };
 
 export const useTopologyStore = create<TopologyStore>()(
@@ -1653,6 +1657,10 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       // Import from YAML
+      setClipboard: (clipboard: Clipboard) => {
+        set({ clipboard });
+      },
+
       importFromYaml: (yamlString: string): boolean => {
         try {
           // Handle empty YAML - reset to defaults

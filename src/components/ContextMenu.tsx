@@ -17,6 +17,8 @@ import {
   ChevronRight as ChevronRightIcon,
   SwapHoriz as SwapIcon,
   CallMerge as MergeIcon,
+  ContentCopy as CopyIcon,
+  ContentPaste as PasteIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState } from 'react';
 import type { NodeTemplate, SimNodeTemplate } from '../types/topology';
@@ -34,9 +36,13 @@ interface ContextMenuProps {
   onChangeSimNodeTemplate?: (templateName: string) => void;
   onCreateLag?: () => void;
   onCreateEsiLag?: () => void;
+  onCopy?: () => void;
+  onPaste?: () => void;
   onClearAll: () => void;
   hasSelection: 'node' | 'edge' | 'simNode' | 'multiEdge' | null;
   hasContent: boolean;
+  canCopy?: boolean;
+  canPaste?: boolean;
   nodeTemplates?: NodeTemplate[];
   currentNodeTemplate?: string;
   simNodeTemplates?: SimNodeTemplate[];
@@ -59,9 +65,13 @@ export default function ContextMenu({
   onChangeSimNodeTemplate,
   onCreateLag,
   onCreateEsiLag,
+  onCopy,
+  onPaste,
   onClearAll,
   hasSelection,
   hasContent,
+  canCopy = false,
+  canPaste = false,
   nodeTemplates = [],
   currentNodeTemplate,
   simNodeTemplates = [],
@@ -210,6 +220,22 @@ export default function ContextMenu({
                 <MenuItem onClick={() => { onDeleteEdge(); onClose(); }}>
                   <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
                   <ListItemText>Delete Link{hasSelection === 'multiEdge' ? 's' : ''}</ListItemText>
+                </MenuItem>
+              )}
+
+              {(canCopy || canPaste) && <Divider />}
+
+              {canCopy && onCopy && (
+                <MenuItem onClick={() => { onCopy(); onClose(); }}>
+                  <ListItemIcon><CopyIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Copy</ListItemText>
+                </MenuItem>
+              )}
+
+              {canPaste && onPaste && (
+                <MenuItem onClick={() => { onPaste(); onClose(); }}>
+                  <ListItemIcon><PasteIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Paste</ListItemText>
                 </MenuItem>
               )}
 

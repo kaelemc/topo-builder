@@ -192,6 +192,8 @@ function TopologyEditorInner() {
     createMultihomedLag,
     mergeEdgesIntoEsiLag,
     setError,
+    clipboard,
+    setClipboard,
   } = useTopologyStore();
 
   const { screenToFlowPosition } = useReactFlow();
@@ -228,16 +230,6 @@ function TopologyEditorInner() {
     position: { x: 0, y: 0 },
     flowPosition: { x: 0, y: 0 },
   });
-
-  const clipboardRef = useRef<{
-    nodes: Node<TopologyNodeData>[];
-    edges: Edge<TopologyEdgeData>[];
-    simNodes: typeof simulation.simNodes;
-    copiedLink?: {
-      edgeId: string;
-      template?: string;
-    };
-  }>({ nodes: [], edges: [], simNodes: [] });
 
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const justConnectedRef = useRef(false);
@@ -342,6 +334,148 @@ function TopologyEditorInner() {
     if (simDragEnded) triggerYamlRefresh();
   }, [onNodesChange, updateSimNodePosition, selectSimNodes, deleteSimNode, triggerYamlRefresh]);
 
+  const handleCopy = useCallback(() => {
+    const currentState = useTopologyStore.getState();
+    const selectedTopoNodes = currentState.nodes.filter(n => n.selected);
+    const selectedSimNodesList = currentState.simulation.simNodes.filter(sn => currentState.selectedSimNodeNames.has(sn.name));
+
+    if (currentState.selectedEdgeIds.length === 1 && selectedTopoNodes.length === 0 && selectedSimNodesList.length === 0) {
+      const edge = currentState.edges.find(e => e.id === currentState.selectedEdgeIds[0]);
+      if (edge && !edge.data?.isMultihomed) {
+        const memberLinks = edge.data?.memberLinks || [];
+        if (memberLinks.length > 0) {
+          setClipboard({
+            nodes: [],
+            edges: [],
+            simNodes: [],
+            copiedLink: {
+              edgeId: edge.id,
+              template: memberLinks[0].template,
+            },
+          });
+          return;
+        }
+      }
+    }
+
+    const selectedEdges = currentState.edges.filter(e => e.selected);
+    if (selectedTopoNodes.length > 0 || selectedSimNodesList.length > 0) {
+      setClipboard({
+        nodes: selectedTopoNodes.map(n => ({ ...n, position: { ...n.position }, data: { ...n.data } })),
+        edges: selectedEdges.map(e => ({ ...e, data: e.data ? { ...e.data, memberLinks: e.data.memberLinks?.map(ml => ({ ...ml })) } : undefined })),
+        simNodes: selectedSimNodesList.map(sn => ({ ...sn, position: sn.position ? { ...sn.position } : undefined })),
+        copiedLink: undefined,
+      });
+    }
+  }, [setClipboard]);
+
+  const handlePaste = useCallback(() => {
+    const { nodes: copiedNodes, edges: copiedEdges, simNodes: copiedSimNodes, copiedLink } = clipboard;
+
+    if (copiedLink) {
+      const currentState = useTopologyStore.getState();
+      const targetEdgeId = currentState.selectedEdgeId || copiedLink.edgeId;
+      const edge = currentState.edges.find(e => e.id === targetEdgeId);
+      if (edge && edge.data) {
+        const sourceIsSimNode = edge.source.startsWith('sim-');
+        const targetIsSimNode = edge.target.startsWith('sim-');
+
+        const extractPortNumber = (iface: string): number => {
+          const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
+          if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
+          const ethMatch = iface.match(/eth(\d+)/);
+          if (ethMatch) return parseInt(ethMatch[1], 10);
+          return 0;
+        };
+
+        const sourcePortNumbers = currentState.edges.flatMap(e => {
+          if (e.source === edge.source) {
+            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
+          }
+          if (e.target === edge.source) {
+            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
+          }
+          return [];
+        });
+        const nextSourcePort = Math.max(0, ...sourcePortNumbers) + 1;
+
+        const targetPortNumbers = currentState.edges.flatMap(e => {
+          if (e.source === edge.target) {
+            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
+          }
+          if (e.target === edge.target) {
+            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
+          }
+          return [];
+        });
+        const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
+
+        const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
+        const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
+
+        const memberLinks = edge.data.memberLinks || [];
+        const nextLinkNumber = memberLinks.length + 1;
+
+        addMemberLink(edge.id, {
+          name: `${edge.data.targetNode}-${edge.data.sourceNode}-${nextLinkNumber}`,
+          template: copiedLink.template,
+          sourceInterface,
+          targetInterface,
+        });
+        triggerYamlRefresh();
+      }
+      return;
+    }
+
+    if (copiedNodes.length > 0 || copiedSimNodes.length > 0) {
+      const allPositions = [
+        ...copiedNodes.map(n => n.position),
+        ...copiedSimNodes.map(sn => sn.position).filter((p): p is { x: number; y: number } => !!p),
+      ];
+      const centerX = allPositions.length > 0
+        ? allPositions.reduce((sum, p) => sum + p.x, 0) / allPositions.length
+        : 0;
+      const centerY = allPositions.length > 0
+        ? allPositions.reduce((sum, p) => sum + p.y, 0) / allPositions.length
+        : 0;
+
+      const cursorPos = contextMenu.flowPosition.x !== 0 || contextMenu.flowPosition.y !== 0
+        ? contextMenu.flowPosition
+        : mousePositionRef.current;
+      const offset = {
+        x: cursorPos.x - centerX,
+        y: cursorPos.y - centerY,
+      };
+
+      if (copiedSimNodes.length === 0) selectSimNodes(new Set());
+      if (copiedNodes.length > 0) pasteSelection(copiedNodes, copiedEdges, offset);
+
+      if (copiedSimNodes.length > 0) {
+        const currentState = useTopologyStore.getState();
+        const allNodeNames = currentState.nodes.map(n => n.data.name);
+        const allSimNodeNames = currentState.simulation.simNodes.map(sn => sn.name);
+        const existingNames = [...allNodeNames, ...allSimNodeNames];
+        const newSimNodeNames: string[] = [];
+
+        for (const simNode of copiedSimNodes) {
+          const newName = generateCopyName(simNode.name, existingNames);
+          existingNames.push(newName);
+          newSimNodeNames.push(newName);
+
+          const { id: _id, ...simNodeWithoutId } = simNode;
+          addSimNode({
+            ...simNodeWithoutId,
+            name: newName,
+            position: simNode.position ? { x: simNode.position.x + offset.x, y: simNode.position.y + offset.y } : undefined,
+          });
+        }
+
+        selectSimNodes(new Set(newSimNodeNames));
+        triggerYamlRefresh();
+      }
+    }
+  }, [clipboard, contextMenu.flowPosition, addMemberLink, addSimNode, pasteSelection, selectSimNodes, triggerYamlRefresh]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -383,146 +517,12 @@ function TopologyEditorInner() {
       }
 
       if (isCtrlOrCmd && e.key === 'c') {
-        const currentState = useTopologyStore.getState();
-        const selectedTopoNodes = currentState.nodes.filter(n => n.selected);
-        const selectedSimNodesList = currentState.simulation.simNodes.filter(sn => currentState.selectedSimNodeNames.has(sn.name));
-
-        if (currentState.selectedEdgeIds.length === 1 && selectedTopoNodes.length === 0 && selectedSimNodesList.length === 0) {
-          const edge = currentState.edges.find(e => e.id === currentState.selectedEdgeIds[0]);
-          if (edge) {
-            const memberLinks = edge.data?.memberLinks || [];
-            if (memberLinks.length === 1 && !edge.data?.isMultihomed) {
-              clipboardRef.current = {
-                nodes: [],
-                edges: [],
-                simNodes: [],
-                copiedLink: {
-                  edgeId: edge.id,
-                  template: memberLinks[0].template,
-                },
-              };
-              return;
-            }
-          }
-        }
-
-        const selectedEdges = currentState.edges.filter(e => e.selected);
-        if (selectedTopoNodes.length > 0 || selectedSimNodesList.length > 0) {
-          clipboardRef.current = {
-            nodes: selectedTopoNodes.map(n => ({ ...n, position: { ...n.position }, data: { ...n.data } })),
-            edges: selectedEdges.map(e => ({ ...e, data: e.data ? { ...e.data, memberLinks: e.data.memberLinks?.map(ml => ({ ...ml })) } : undefined })),
-            simNodes: selectedSimNodesList.map(sn => ({ ...sn, position: sn.position ? { ...sn.position } : undefined })),
-            copiedLink: undefined,
-          };
-        }
+        handleCopy();
       }
 
       if (isCtrlOrCmd && e.key === 'v') {
-        const { nodes: copiedNodes, edges: copiedEdges, simNodes: copiedSimNodes, copiedLink } = clipboardRef.current;
-
-        if (copiedLink) {
-          e.preventDefault();
-          const currentState = useTopologyStore.getState();
-          const targetEdgeId = currentState.selectedEdgeId || copiedLink.edgeId;
-          const edge = currentState.edges.find(e => e.id === targetEdgeId);
-          if (edge && edge.data) {
-            const sourceIsSimNode = edge.source.startsWith('sim-');
-            const targetIsSimNode = edge.target.startsWith('sim-');
-
-            const extractPortNumber = (iface: string): number => {
-              const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
-              if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
-              const ethMatch = iface.match(/eth(\d+)/);
-              if (ethMatch) return parseInt(ethMatch[1], 10);
-              return 0;
-            };
-
-            const sourcePortNumbers = currentState.edges.flatMap(e => {
-              if (e.source === edge.source) {
-                return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-              }
-              if (e.target === edge.source) {
-                return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-              }
-              return [];
-            });
-            const nextSourcePort = Math.max(0, ...sourcePortNumbers) + 1;
-
-            const targetPortNumbers = currentState.edges.flatMap(e => {
-              if (e.source === edge.target) {
-                return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-              }
-              if (e.target === edge.target) {
-                return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-              }
-              return [];
-            });
-            const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
-
-            const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
-            const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
-
-            const memberLinks = edge.data.memberLinks || [];
-            const nextLinkNumber = memberLinks.length + 1;
-
-            addMemberLink(edge.id, {
-              name: `${edge.data.targetNode}-${edge.data.sourceNode}-${nextLinkNumber}`,
-              template: copiedLink.template,
-              sourceInterface,
-              targetInterface,
-            });
-            triggerYamlRefresh();
-          }
-          return;
-        }
-
-        if (copiedNodes.length > 0 || copiedSimNodes.length > 0) {
-          e.preventDefault();
-
-          const allPositions = [
-            ...copiedNodes.map(n => n.position),
-            ...copiedSimNodes.map(sn => sn.position).filter((p): p is { x: number; y: number } => !!p),
-          ];
-          const centerX = allPositions.length > 0
-            ? allPositions.reduce((sum, p) => sum + p.x, 0) / allPositions.length
-            : 0;
-          const centerY = allPositions.length > 0
-            ? allPositions.reduce((sum, p) => sum + p.y, 0) / allPositions.length
-            : 0;
-
-          const cursorPos = mousePositionRef.current;
-          const offset = {
-            x: cursorPos.x - centerX,
-            y: cursorPos.y - centerY,
-          };
-
-          if (copiedSimNodes.length === 0) selectSimNodes(new Set());
-          if (copiedNodes.length > 0) pasteSelection(copiedNodes, copiedEdges, offset);
-
-          if (copiedSimNodes.length > 0) {
-            const currentState = useTopologyStore.getState();
-            const allNodeNames = currentState.nodes.map(n => n.data.name);
-            const allSimNodeNames = currentState.simulation.simNodes.map(sn => sn.name);
-            const existingNames = [...allNodeNames, ...allSimNodeNames];
-            const newSimNodeNames: string[] = [];
-
-            for (const simNode of copiedSimNodes) {
-              const newName = generateCopyName(simNode.name, existingNames);
-              existingNames.push(newName);
-              newSimNodeNames.push(newName);
-
-              const { id: _id, ...simNodeWithoutId } = simNode;
-              addSimNode({
-                ...simNodeWithoutId,
-                name: newName,
-                position: simNode.position ? { x: simNode.position.x + offset.x, y: simNode.position.y + offset.y } : undefined,
-              });
-            }
-
-            selectSimNodes(new Set(newSimNodeNames));
-            triggerYamlRefresh();
-          }
-        }
+        e.preventDefault();
+        handlePaste();
       }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -556,7 +556,7 @@ function TopologyEditorInner() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pasteSelection, addSimNode, addMemberLink, deleteMemberLink, clearMemberLinkSelection, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh, selectSimNodes]);
+  }, [handleCopy, handlePaste, deleteMemberLink, clearMemberLinkSelection, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh, selectSimNodes]);
 
   const handlePaneClick = useCallback(() => {
     if (justConnectedRef.current) {
@@ -715,6 +715,14 @@ function TopologyEditorInner() {
       createLagFromMemberLinks(selectedEdgeId, selectedMemberLinkIndices);
     }
   };
+
+  const canCopy = nodes.some(n => n.selected) ||
+    simulation.simNodes.some(sn => selectedSimNodeNames.has(sn.name)) ||
+    selectedEdgeIds.length === 1;
+
+  const canPaste = clipboard.nodes.length > 0 ||
+    clipboard.simNodes.length > 0 ||
+    !!clipboard.copiedLink;
 
   // ENSURE A COMMON NODE IS SELECTED
   const esiLagValidation = (() => {
@@ -923,11 +931,15 @@ function TopologyEditorInner() {
         onChangeSimNodeTemplate={handleChangeSimNodeTemplate}
         onCreateLag={handleCreateLag}
         onCreateEsiLag={handleCreateEsiLag}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
         currentNodeTemplate={currentNodeTemplate}
         currentSimNodeTemplate={currentSimNodeTemplate}
         onClearAll={clearAll}
         hasSelection={hasSelection}
         hasContent={nodes.length > 0 || edges.length > 0 || simulation.simNodes.length > 0}
+        canCopy={canCopy}
+        canPaste={canPaste}
         nodeTemplates={nodeTemplates}
         simNodeTemplates={simulation.simNodeTemplates}
         selectedMemberLinkCount={selectedMemberLinkIndices.length}
