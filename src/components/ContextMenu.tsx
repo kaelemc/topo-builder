@@ -87,7 +87,33 @@ export default function ContextMenu({
   isMergeIntoEsiLag = false,
 }: ContextMenuProps) {
   const anchorRef = useRef<HTMLDivElement | null>(null);
+  const paperRef = useRef<HTMLDivElement | null>(null);
   const [showSubmenu, setShowSubmenu] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (paperRef.current && !paperRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    const handleOutsideContextMenu = (event: MouseEvent) => {
+      if (paperRef.current && !paperRef.current.contains(event.target as Node)) {
+        event.stopPropagation();
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick, true);
+    document.addEventListener('contextmenu', handleOutsideContextMenu, true);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick, true);
+      document.removeEventListener('contextmenu', handleOutsideContextMenu, true);
+    };
+  }, [open, onClose]);
 
   useEffect(() => {
     if (!anchorRef.current) {
@@ -119,7 +145,7 @@ export default function ContextMenu({
       <Popper open={open} anchorEl={anchorRef.current} placement="bottom-start" className="z-1300" transition>
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={200}>
-            <Paper elevation={8} onContextMenu={e => e.preventDefault()} sx={{ py: 0.5, minWidth: 180 }}>
+            <Paper ref={paperRef} elevation={8} onContextMenu={e => e.preventDefault()} sx={{ py: 0.5, minWidth: 180 }}>
               {!hasSelection && (
                 <MenuItem onClick={() => { onAddNode(); onClose(); }}>
                   <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
