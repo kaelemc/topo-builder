@@ -122,6 +122,7 @@ interface TopologyActions {
   selectLag: (edgeId: string, lagId: string | null) => void;
   clearMemberLinkSelection: () => void;
   clearEdgeSelection: () => void;
+  syncSelectionFromReactFlow: (nodeIds: string[], edgeIds: string[]) => void;
 
   createLagFromMemberLinks: (edgeId: string, memberLinkIndices: number[]) => void;
   createMultihomedLag: (edgeId1: string, edgeId2: string, additionalEdgeIds?: string[]) => void;
@@ -1040,16 +1041,12 @@ export const useTopologyStore = create<TopologyStore>()(
           const isCurrentlySelected = currentNode?.selected || false;
           set({
             selectedNodeId: isCurrentlySelected ? null : id,
-            selectedEdgeId: null,
-            selectedEdgeIds: [],
             selectedSimNodeName: null,
             selectedSimNodeNames: EMPTY_STRING_SET,
-            selectedMemberLinkIndices: [],
           selectedLagId: null,
             nodes: get().nodes.map(n =>
               n.id === id ? { ...n, selected: !isCurrentlySelected } : n
             ),
-            edges: get().edges.map(e => ({ ...e, selected: false })),
           });
         } else {
           set({
@@ -1095,17 +1092,29 @@ export const useTopologyStore = create<TopologyStore>()(
           newIds = [id];
         }
 
-        set({
-          selectedEdgeId: newIds.length === 1 ? newIds[0] : (newIds.length > 0 ? newIds[newIds.length - 1] : null),
-          selectedEdgeIds: newIds,
-          selectedNodeId: null,
-          selectedSimNodeName: null,
-          selectedSimNodeNames: EMPTY_STRING_SET,
-          selectedMemberLinkIndices: [],
-          selectedLagId: null,
-          edges: get().edges.map(e => ({ ...e, selected: newIds.includes(e.id) })),
-          nodes: get().nodes.map(n => ({ ...n, selected: false })),
-        });
+        if (addToSelection) {
+          set({
+            selectedEdgeId: newIds.length === 1 ? newIds[0] : (newIds.length > 0 ? newIds[newIds.length - 1] : null),
+            selectedEdgeIds: newIds,
+            selectedSimNodeName: null,
+            selectedSimNodeNames: EMPTY_STRING_SET,
+            selectedMemberLinkIndices: [],
+            selectedLagId: null,
+            edges: get().edges.map(e => ({ ...e, selected: newIds.includes(e.id) })),
+          });
+        } else {
+          set({
+            selectedEdgeId: newIds.length === 1 ? newIds[0] : (newIds.length > 0 ? newIds[newIds.length - 1] : null),
+            selectedEdgeIds: newIds,
+            selectedNodeId: null,
+            selectedSimNodeName: null,
+            selectedSimNodeNames: EMPTY_STRING_SET,
+            selectedMemberLinkIndices: [],
+            selectedLagId: null,
+            edges: get().edges.map(e => ({ ...e, selected: newIds.includes(e.id) })),
+            nodes: get().nodes.map(n => ({ ...n, selected: false })),
+          });
+        }
       },
 
       clearEdgeSelection: () => {
@@ -1115,6 +1124,23 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedMemberLinkIndices: [],
           selectedLagId: null,
           edges: get().edges.map(e => ({ ...e, selected: false })),
+        });
+      },
+
+      syncSelectionFromReactFlow: (nodeIds: string[], edgeIds: string[]) => {
+        const lastNodeId = nodeIds.length > 0 ? nodeIds[nodeIds.length - 1] : null;
+        const lastEdgeId = edgeIds.length > 0 ? edgeIds[edgeIds.length - 1] : null;
+
+        set({
+          selectedNodeId: lastNodeId,
+          selectedEdgeId: lastEdgeId,
+          selectedEdgeIds: edgeIds,
+          selectedSimNodeName: null,
+          selectedSimNodeNames: EMPTY_STRING_SET,
+          selectedMemberLinkIndices: [],
+          selectedLagId: null,
+          nodes: get().nodes.map(n => ({ ...n, selected: nodeIds.includes(n.id) })),
+          edges: get().edges.map(e => ({ ...e, selected: edgeIds.includes(e.id) })),
         });
       },
 
@@ -1751,6 +1777,21 @@ export const useTopologyStore = create<TopologyStore>()(
               name: `${newTargetName}-${newSourceName}-${link.name.split('-').pop() || '1'}`,
             }));
 
+            const lagGroups = edge.data?.lagGroups?.map((lag) => {
+              let newLagName = lag.name;
+              if (edge.data?.sourceNode && newSourceName) {
+                newLagName = newLagName.replace(new RegExp(`(^|-)${edge.data.sourceNode}(-|$)`, 'g'), `$1${newSourceName}$2`);
+              }
+              if (edge.data?.targetNode && newTargetName) {
+                newLagName = newLagName.replace(new RegExp(`(^|-)${edge.data.targetNode}(-|$)`, 'g'), `$1${newTargetName}$2`);
+              }
+              return {
+                ...lag,
+                name: newLagName,
+                memberLinkIndices: [...lag.memberLinkIndices],
+              };
+            });
+
             return {
               ...edge,
               id: newId,
@@ -1763,6 +1804,7 @@ export const useTopologyStore = create<TopologyStore>()(
                 sourceNode: newSourceName || '',
                 targetNode: newTargetName || '',
                 memberLinks,
+                lagGroups,
               } : undefined,
             };
           });

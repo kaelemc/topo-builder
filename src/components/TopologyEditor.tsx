@@ -13,6 +13,7 @@ import {
   type Edge,
   type NodeChange,
   type Connection,
+  type OnSelectionChangeParams,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Box, Tabs, Tab, useTheme, IconButton, Drawer, Typography } from '@mui/material';
@@ -198,6 +199,7 @@ function TopologyEditorInner() {
     setError,
     clipboard,
     setClipboard,
+    syncSelectionFromReactFlow,
   } = useTopologyStore();
 
   const { screenToFlowPosition } = useReactFlow();
@@ -383,10 +385,17 @@ function TopologyEditorInner() {
     }
 
     const selectedEdges = currentState.edges.filter(e => e.selected);
-    if (selectedTopoNodes.length > 0 || selectedSimNodesList.length > 0) {
+    if (selectedTopoNodes.length > 0 || selectedSimNodesList.length > 0 || selectedEdges.length > 0) {
       setClipboard({
         nodes: selectedTopoNodes.map(n => ({ ...n, position: { ...n.position }, data: { ...n.data } })),
-        edges: selectedEdges.map(e => ({ ...e, data: e.data ? { ...e.data, memberLinks: e.data.memberLinks?.map(ml => ({ ...ml })) } : undefined })),
+        edges: selectedEdges.map(e => ({
+          ...e,
+          data: e.data ? {
+            ...e.data,
+            memberLinks: e.data.memberLinks?.map(ml => ({ ...ml, labels: ml.labels ? { ...ml.labels } : undefined })),
+            lagGroups: e.data.lagGroups?.map(lg => ({ ...lg, memberLinkIndices: [...lg.memberLinkIndices], labels: lg.labels ? { ...lg.labels } : undefined })),
+          } : undefined
+        })),
         simNodes: selectedSimNodesList.map(sn => ({ ...sn, position: sn.position ? { ...sn.position } : undefined })),
         copiedLink: undefined,
       });
@@ -612,6 +621,14 @@ function TopologyEditorInner() {
     setContextMenu(prev => ({ ...prev, open: false }));
   }, []);
 
+  const handleSelectionChange = useCallback(({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+    const regularNodeIds = selectedNodes
+      .filter(n => n.type !== 'simDeviceNode')
+      .map(n => n.id);
+    const edgeIds = selectedEdges.map(e => e.id);
+    syncSelectionFromReactFlow(regularNodeIds, edgeIds);
+  }, [syncSelectionFromReactFlow]);
+
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
       mouseScreenPositionRef.current = { x: event.clientX, y: event.clientY };
@@ -671,7 +688,9 @@ function TopologyEditorInner() {
       selectSimNode(simName);
       if (activeTab === 0) jumpToSimNodeInEditor(simName);
     } else {
-      selectNode(node.id, event.shiftKey);
+      if (!event.shiftKey) {
+        selectNode(node.id, false);
+      }
       if (activeTab === 0) jumpToNodeInEditor((node.data as TopologyNodeData).name);
     }
   }, [selectNode, selectSimNode, selectSimNodes, activeTab]);
@@ -686,7 +705,9 @@ function TopologyEditorInner() {
     if (isExpanded && hasMemberLinks) {
       return;
     }
-    selectEdge(edge.id, event.shiftKey);
+    if (!event.shiftKey) {
+      selectEdge(edge.id, false);
+    }
     if (activeTab === 0 && edge.data && (edge.data.memberLinks?.length || 0) === 1) {
       jumpToLinkInEditor(edge.data.sourceNode, edge.data.targetNode);
     }
@@ -769,7 +790,7 @@ function TopologyEditorInner() {
 
   const canCopy = nodes.some(n => n.selected) ||
     simulation.simNodes.some(sn => selectedSimNodeNames.has(sn.name)) ||
-    selectedEdgeIds.length === 1;
+    edges.some(e => e.selected);
 
   const canPaste = clipboard.nodes.length > 0 ||
     clipboard.simNodes.length > 0 ||
@@ -980,6 +1001,7 @@ function TopologyEditorInner() {
             selectionKeyCode="Shift"
             multiSelectionKeyCode="Shift"
             selectionOnDrag
+            onSelectionChange={handleSelectionChange}
           >
             <Controls position="top-right">
               {simulation.simNodes.length > 0 && (
