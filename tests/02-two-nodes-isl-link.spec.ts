@@ -97,8 +97,6 @@ spec:
       labels:
         topobuilder.eda.labs/edgeId: edge-1
         topobuilder.eda.labs/memberIndex: "0"
-        topobuilder.eda.labs/srcHandle: left
-        topobuilder.eda.labs/dstHandle: right-target
       endpoints:
         - local:
             node: leaf2
@@ -210,8 +208,6 @@ spec:
       labels:
         topobuilder.eda.labs/edgeId: edge-1
         topobuilder.eda.labs/memberIndex: "0"
-        topobuilder.eda.labs/srcHandle: left
-        topobuilder.eda.labs/dstHandle: right-target
       endpoints:
         - local:
             node: leaf2

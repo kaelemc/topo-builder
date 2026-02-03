@@ -1,48 +1,50 @@
-import { type EdgeProps } from '@xyflow/react';
-import { useTopologyStore } from '../../lib/store';
-import type { TopologyEdgeData } from '../../types/topology';
+import { type EdgeProps, useInternalNode } from '@xyflow/react';
+import { useTopologyStore } from '../../lib/store/index';
+import type { UIEdgeData } from '../../types/ui';
 import StandardEdge from './StandardEdge';
-import ExpandedBundleEdge from './ExpandedBundleEdge';
+import BundleEdge from './BundleEdge';
 import EsiLagEdge from './EsiLagEdge';
 import { topologyEdgeTestId } from '../../lib/testIds';
+import { getFloatingEdgeParams } from '../../lib/edgeUtils';
 
 export default function LinkEdge({
   id,
   source,
   target,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition,
-  targetPosition,
   data,
   selected,
 }: EdgeProps) {
-  const edgeData = data as TopologyEdgeData | undefined;
+  const edgeData = data as UIEdgeData | undefined;
   const isSimNodeEdge = source?.startsWith('sim-') || target?.startsWith('sim-');
+
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
 
   const edgeNodeA = edgeData?.sourceNode ?? source;
   const edgeNodeB = edgeData?.targetNode ?? target;
   const edgeTestId = topologyEdgeTestId(edgeNodeA, edgeNodeB);
 
-  const expandedEdges = useTopologyStore((state) => state.expandedEdges);
-  const selectedMemberLinkIndices = useTopologyStore((state) => state.selectedMemberLinkIndices);
-  const selectedLagId = useTopologyStore((state) => state.selectedLagId);
-  const toggleEdgeExpanded = useTopologyStore((state) => state.toggleEdgeExpanded);
-  const selectMemberLink = useTopologyStore((state) => state.selectMemberLink);
-  const selectLag = useTopologyStore((state) => state.selectLag);
-  const nodes = useTopologyStore((state) => state.nodes);
-  const simNodes = useTopologyStore((state) => state.simulation.simNodes);
+  const expandedEdges = useTopologyStore(state => state.expandedEdges);
+  const selectedMemberLinkIndices = useTopologyStore(state => state.selectedMemberLinkIndices);
+  const selectedLagId = useTopologyStore(state => state.selectedLagId);
+  const toggleEdgeExpanded = useTopologyStore(state => state.toggleEdgeExpanded);
+  const selectMemberLink = useTopologyStore(state => state.selectMemberLink);
+  const selectLag = useTopologyStore(state => state.selectLag);
+  const nodes = useTopologyStore(state => state.nodes);
 
-  const isMultihomed = edgeData?.isMultihomed;
+  if (!sourceNode || !targetNode) {
+    return null;
+  }
+
+  const { sx: sourceX, sy: sourceY, tx: targetX, ty: targetY, sourcePos: sourcePosition, targetPos: targetPosition } = getFloatingEdgeParams(sourceNode, targetNode);
+
+  const isEsiLag = edgeData?.edgeType === 'esilag';
   const esiLeaves = edgeData?.esiLeaves;
   const memberLinks = edgeData?.memberLinks || [];
   const lagGroups = edgeData?.lagGroups || [];
   const linkCount = memberLinks.length;
   const isExpanded = expandedEdges.has(id);
   const isSelected = selected ?? false;
-
 
   const handleDoubleClick = () => {
     if (linkCount > 1) {
@@ -72,16 +74,10 @@ export default function LinkEdge({
     }
   };
 
-  if (isMultihomed && esiLeaves?.length) {
+  if (isEsiLag && esiLeaves?.length) {
     const findNodeInfo = (nodeId: string) => {
-      const topoNode = nodes.find(n => n.id === nodeId);
-      if (topoNode) return topoNode;
-      const simNode = simNodes?.find(s => s.id === nodeId);
-      if (simNode) return {
-        id: simNode.id,
-        position: simNode.position || { x: 0, y: 0 },
-        measured: { width: 120, height: 40 },
-      };
+      const node = nodes.find(n => n.id === nodeId);
+      if (node) return node;
       return null;
     };
 
@@ -99,12 +95,7 @@ export default function LinkEdge({
         <EsiLagEdge
           id={id}
           testId={edgeTestId}
-          sourceX={sourceX}
-          sourceY={sourceY}
-          targetX={targetX}
-          targetY={targetY}
-          sourcePosition={sourcePosition}
-          targetPosition={targetPosition}
+          sourceNode={sourceNode}
           isSelected={isSelected}
           isSimNodeEdge={isSimNodeEdge}
           esiLeaves={esiLeaves}
@@ -116,7 +107,7 @@ export default function LinkEdge({
 
   if (isExpanded && linkCount > 0) {
     return (
-      <ExpandedBundleEdge
+      <BundleEdge
         edgeNodeA={edgeNodeA}
         edgeNodeB={edgeNodeB}
         sourceX={sourceX}

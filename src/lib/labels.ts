@@ -1,24 +1,16 @@
 import type { Node, Edge } from '@xyflow/react';
-import type {
-  TopologyNodeData,
-  TopologyEdgeData,
-  NodeTemplate,
-  LinkTemplate,
-  MemberLink,
-  LagGroup,
-} from '../types/topology';
+import type { NodeTemplate, LinkTemplate } from '../types/schema';
+import type { UINodeData, UIEdgeData, UIMemberLink, UILagGroup } from '../types/ui';
 import {
   LABEL_POS_X,
   LABEL_POS_Y,
-  LABEL_SRC_HANDLE,
-  LABEL_DST_HANDLE,
   LABEL_EDGE_ID,
   LABEL_MEMBER_INDEX,
 } from './constants';
 
 export function getNodeLabels(
-  node: Node<TopologyNodeData>,
-  nodeTemplates: NodeTemplate[]
+  node: Node<UINodeData>,
+  nodeTemplates: NodeTemplate[],
 ): Record<string, string> {
   const templateLabels = node.data.template
     ? nodeTemplates.find(t => t.name === node.data.template)?.labels
@@ -33,8 +25,8 @@ export function getNodeLabels(
 }
 
 export function getInheritedNodeLabels(
-  node: Node<TopologyNodeData>,
-  nodeTemplates: NodeTemplate[]
+  node: Node<UINodeData>,
+  nodeTemplates: NodeTemplate[],
 ): Record<string, string> {
   if (!node.data.template) return {};
   const template = nodeTemplates.find(t => t.name === node.data.template);
@@ -42,10 +34,10 @@ export function getInheritedNodeLabels(
 }
 
 export function getLinkLabels(
-  edge: Edge<TopologyEdgeData>,
+  edge: Edge<UIEdgeData>,
   memberIndex: number,
-  memberLink: MemberLink | undefined,
-  linkTemplates: LinkTemplate[]
+  memberLink: UIMemberLink | undefined,
+  linkTemplates: LinkTemplate[],
 ): Record<string, string> {
   const templateLabels = memberLink?.template
     ? linkTemplates.find(t => t.name === memberLink.template)?.labels
@@ -56,14 +48,12 @@ export function getLinkLabels(
     ...memberLink?.labels,
     [LABEL_EDGE_ID]: edge.id,
     [LABEL_MEMBER_INDEX]: String(memberIndex),
-    ...(edge.sourceHandle && { [LABEL_SRC_HANDLE]: edge.sourceHandle }),
-    ...(edge.targetHandle && { [LABEL_DST_HANDLE]: edge.targetHandle }),
   };
 }
 
 export function getInheritedLinkLabels(
-  memberLink: MemberLink | undefined,
-  linkTemplates: LinkTemplate[]
+  memberLink: UIMemberLink | undefined,
+  linkTemplates: LinkTemplate[],
 ): Record<string, string> {
   if (!memberLink?.template) return {};
   const template = linkTemplates.find(t => t.name === memberLink.template);
@@ -71,9 +61,9 @@ export function getInheritedLinkLabels(
 }
 
 export function getLagLabels(
-  edge: Edge<TopologyEdgeData>,
-  lagGroup: LagGroup,
-  linkTemplates: LinkTemplate[]
+  edge: Edge<UIEdgeData>,
+  lagGroup: UILagGroup,
+  linkTemplates: LinkTemplate[],
 ): Record<string, string> {
   const templateLabels = lagGroup.template
     ? linkTemplates.find(t => t.name === lagGroup.template)?.labels
@@ -86,14 +76,12 @@ export function getLagLabels(
     ...lagGroup.labels,
     [LABEL_EDGE_ID]: edge.id,
     [LABEL_MEMBER_INDEX]: String(memberIndex),
-    ...(edge.sourceHandle && { [LABEL_SRC_HANDLE]: edge.sourceHandle }),
-    ...(edge.targetHandle && { [LABEL_DST_HANDLE]: edge.targetHandle }),
   };
 }
 
 export function getInheritedLagLabels(
-  lagGroup: LagGroup,
-  linkTemplates: LinkTemplate[]
+  lagGroup: UILagGroup,
+  linkTemplates: LinkTemplate[],
 ): Record<string, string> {
   if (!lagGroup.template) return {};
   const template = linkTemplates.find(t => t.name === lagGroup.template);

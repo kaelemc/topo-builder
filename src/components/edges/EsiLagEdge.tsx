@@ -1,7 +1,7 @@
 import { Position } from '@xyflow/react';
-import { getHandleCoordinates, getControlPoint } from './edgeUtils';
-import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
-import type { EsiLeafConnection } from '../../types/topology';
+import { getFloatingEdgeParams, getControlPoint, getNodeCenter } from '../../lib/edgeUtils';
+import { EDGE_INTERACTION_WIDTH, DEFAULT_NODE_WIDTH, DEFAULT_NODE_HEIGHT, ESI_LAG_STEM_LENGTH } from '../../lib/constants';
+import type { UIEsiLeaf } from '../../types/ui';
 
 interface NodeInfo {
   id: string;
@@ -12,27 +12,17 @@ interface NodeInfo {
 interface EsiLagEdgeProps {
   id: string;
   testId?: string;
-  sourceX: number;
-  sourceY: number;
-  targetX: number;
-  targetY: number;
-  sourcePosition: Position;
-  targetPosition: Position;
+  sourceNode: NodeInfo;
   isSelected: boolean;
   isSimNodeEdge: boolean;
-  esiLeaves: EsiLeafConnection[];
+  esiLeaves: UIEsiLeaf[];
   leafNodes: Map<string, NodeInfo>;
 }
 
 export default function EsiLagEdge({
   id,
   testId,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition,
-  targetPosition,
+  sourceNode,
   isSelected,
   isSimNodeEdge,
   esiLeaves,
@@ -40,22 +30,68 @@ export default function EsiLagEdge({
 }: EsiLagEdgeProps) {
   const strokeColor = isSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)';
 
-  const stemLength = 25;
+  const sourceCenter = getNodeCenter(sourceNode);
+
+  const leafNodeInfos = esiLeaves
+    .map(leaf => leafNodes.get(leaf.nodeId))
+    .filter((n): n is NodeInfo => n !== undefined);
+
+  if (leafNodeInfos.length === 0) return null;
+
+  const avgTargetCenter = {
+    x: leafNodeInfos.reduce((sum, n) => sum + getNodeCenter(n).x, 0) / leafNodeInfos.length,
+    y: leafNodeInfos.reduce((sum, n) => sum + getNodeCenter(n).y, 0) / leafNodeInfos.length,
+  };
+
+  const horizontalDiff = Math.abs(sourceCenter.x - avgTargetCenter.x);
+  const verticalDiff = Math.abs(sourceCenter.y - avgTargetCenter.y);
+
+  let sourcePosition: Position;
+  if (horizontalDiff > verticalDiff) {
+    sourcePosition = sourceCenter.x > avgTargetCenter.x ? Position.Left : Position.Right;
+  } else {
+    sourcePosition = sourceCenter.y > avgTargetCenter.y ? Position.Top : Position.Bottom;
+  }
+
+  const sourceWidth = sourceNode.measured?.width || DEFAULT_NODE_WIDTH;
+  const sourceHeight = sourceNode.measured?.height || DEFAULT_NODE_HEIGHT;
+  let sourceX: number;
+  let sourceY: number;
+
+  switch (sourcePosition) {
+    case Position.Top:
+      sourceX = sourceNode.position.x + sourceWidth / 2;
+      sourceY = sourceNode.position.y;
+      break;
+    case Position.Bottom:
+      sourceX = sourceNode.position.x + sourceWidth / 2;
+      sourceY = sourceNode.position.y + sourceHeight;
+      break;
+    case Position.Left:
+      sourceX = sourceNode.position.x;
+      sourceY = sourceNode.position.y + sourceHeight / 2;
+      break;
+    case Position.Right:
+      sourceX = sourceNode.position.x + sourceWidth;
+      sourceY = sourceNode.position.y + sourceHeight / 2;
+      break;
+  }
+
   let stemX = sourceX;
   let stemY = sourceY;
 
   switch (sourcePosition) {
     case Position.Top:
-      stemY = sourceY - stemLength;
+      stemY = sourceY - ESI_LAG_STEM_LENGTH;
       break;
     case Position.Bottom:
-      stemY = sourceY + stemLength;
+      stemY = sourceY + ESI_LAG_STEM_LENGTH;
       break;
     case Position.Left:
-      stemX = sourceX - stemLength;
+      stemX = sourceX - ESI_LAG_STEM_LENGTH;
       break;
     case Position.Right:
-      stemX = sourceX + stemLength;
+      stemX = sourceX + ESI_LAG_STEM_LENGTH;
       break;
   }
 
@@ -71,15 +107,12 @@ export default function EsiLagEdge({
 
   const paths: string[] = [];
 
-  paths.push(createPath(targetX, targetY, targetPosition));
-
-  for (let i = 1; i < esiLeaves.length; i++) {
-    const leaf = esiLeaves[i];
+  for (const leaf of esiLeaves) {
     const leafNode = leafNodes.get(leaf.nodeId);
     if (!leafNode) continue;
 
-    const leafCoords = getHandleCoordinates(leafNode, leaf.leafHandle);
-    paths.push(createPath(leafCoords.x, leafCoords.y, leafCoords.position));
+    const { tx, ty, targetPos } = getFloatingEdgeParams(sourceNode, leafNode);
+    paths.push(createPath(tx, ty, targetPos));
   }
 
   return (

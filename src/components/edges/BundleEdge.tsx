@@ -1,11 +1,11 @@
 import { EdgeLabelRenderer, Position } from '@xyflow/react';
 import { Chip } from '@mui/material';
-import { createFannedBezierPath, calculateLinkOffsets } from './edgeUtils';
+import { createFannedBezierPath, calculateLinkOffsets } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
-import type { MemberLink, LagGroup } from '../../types/topology';
+import type { UIMemberLink, UILagGroup } from '../../types/ui';
 import { topologyLagTestId, topologyMemberLinkTestId } from '../../lib/testIds';
 
-interface ExpandedBundleEdgeProps {
+interface BundleEdgeProps {
   edgeNodeA?: string;
   edgeNodeB?: string;
   sourceX: number;
@@ -16,8 +16,8 @@ interface ExpandedBundleEdgeProps {
   targetPosition: Position;
   isSelected: boolean;
   isSimNodeEdge: boolean;
-  memberLinks: MemberLink[];
-  lagGroups: LagGroup[];
+  memberLinks: UIMemberLink[];
+  lagGroups: UILagGroup[];
   selectedMemberLinkIndices: number[];
   selectedLagId: string | null;
   onDoubleClick?: () => void;
@@ -27,7 +27,7 @@ interface ExpandedBundleEdgeProps {
   onLagContextMenu: (lagId: string) => void;
 }
 
-export default function ExpandedBundleEdge({
+export default function BundleEdge({
   edgeNodeA,
   edgeNodeB,
   sourceX,
@@ -47,7 +47,7 @@ export default function ExpandedBundleEdge({
   onMemberLinkContextMenu,
   onLagClick,
   onLagContextMenu,
-}: ExpandedBundleEdgeProps) {
+}: BundleEdgeProps) {
   const canBuildTestIds = Boolean(edgeNodeA && edgeNodeB);
   const indicesInLags = new Set<number>();
   for (const lag of lagGroups) {
@@ -56,7 +56,7 @@ export default function ExpandedBundleEdge({
     }
   }
 
-  type VisualItem = { type: 'link'; index: number } | { type: 'lag'; lag: LagGroup };
+  type VisualItem = { type: 'link'; index: number } | { type: 'lag'; lag: UILagGroup };
   const visualItems: VisualItem[] = [];
 
   memberLinks.forEach((_, index) => {
@@ -83,7 +83,7 @@ export default function ExpandedBundleEdge({
         const offset = offsets[visualIndex];
         const { path: curvePath, midpoint: curveMidpoint } = createFannedBezierPath(
           sourceX, sourceY, targetX, targetY,
-          sourcePosition, targetPosition, offset
+          sourcePosition, targetPosition, offset,
         );
 
         if (item.type === 'link') {
@@ -106,8 +106,8 @@ export default function ExpandedBundleEdge({
                 fill="none"
                 stroke="transparent"
                 strokeWidth={EDGE_INTERACTION_WIDTH}
-                onClick={(e) => onMemberLinkClick(e, item.index)}
-                onContextMenu={(e) => onMemberLinkContextMenu(e, item.index)}
+                onClick={e => { onMemberLinkClick(e, item.index); }}
+                onContextMenu={e => { onMemberLinkContextMenu(e, item.index); }}
               />
               <path
                 d={curvePath}
@@ -139,8 +139,8 @@ export default function ExpandedBundleEdge({
                   fill="none"
                   stroke="transparent"
                   strokeWidth={EDGE_INTERACTION_WIDTH}
-                  onClick={(e) => onLagClick(e, item.lag.id)}
-                  onContextMenu={() => onLagContextMenu(item.lag.id)}
+                  onClick={e => { onLagClick(e, item.lag.id); }}
+                  onContextMenu={() => { onLagContextMenu(item.lag.id); }}
                 />
                 <path
                   d={curvePath}

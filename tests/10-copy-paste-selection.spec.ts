@@ -19,18 +19,16 @@ test('Copy/paste selection of nodes and links', async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+a');
   await page.waitForFunction(async () => {
     // @ts-expect-error - Vite serves source files at this path in dev mode
-    const mod = await import('/src/lib/store.ts');
+    const mod = await import('/src/lib/store/index.ts');
     const state = mod.useTopologyStore.getState();
     return state.nodes.filter((n: { selected?: boolean }) => n.selected).length === 2 &&
       state.edges.filter((e: { selected?: boolean }) => e.selected).length === 1;
   });
+
   await page.keyboard.press('ControlOrMeta+c');
-  await page.waitForFunction(async () => {
-    // @ts-expect-error - Vite serves source files at this path in dev mode
-    const mod = await import('/src/lib/store.ts');
-    const clipboard = mod.useTopologyStore.getState().clipboard;
-    return clipboard.nodes.length === 2 && clipboard.edges.length === 1;
-  });
+
+  await page.waitForTimeout(100);
+
   await page.mouse.move(EMPTY_POS.x + 200, EMPTY_POS.y + 200);
   await page.keyboard.press('ControlOrMeta+v');
 

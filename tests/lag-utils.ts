@@ -52,7 +52,7 @@ export const lagByName = (page: Page, a: string, b: string, lagName: string) =>
 export const selectEdgesByNames = async (page: Page, pairs: Array<[string, string]>) => {
   await page.evaluate(async (edgePairs) => {
     // @ts-expect-error - Vite serves source files at this path in dev mode
-    const mod = await import('/src/lib/store.ts');
+    const mod = await import('/src/lib/store/index.ts');
     const state = mod.useTopologyStore.getState();
     const edgeIds: string[] = [];
     for (const [a, b] of edgePairs as Array<[string, string]>) {

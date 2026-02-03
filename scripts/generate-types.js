@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const schemaPath = path.join(__dirname, '../src/static/schema.json');
-const outputPath = path.join(__dirname, '../src/types/topology.ts');
+const outputPath = path.join(__dirname, '../src/types/schema.ts');
 
 const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
 
@@ -41,7 +41,7 @@ const encapTypeEnum = extractEnum(specSchema, 'links.items.encapType') ||
 const simNodeTypeEnum = extractEnum(specSchema, 'simulation.simNodes.items.type') ||
                         extractEnum(specSchema, 'simulation.simNodeTemplates.items.type');
 
-const output = `// DO NOT EDIT THIS GENERATED FILE.
+const yamlOutput = `// DO NOT EDIT THIS GENERATED FILE.
 // Run: node scripts/generate-types.js
 
 export type Operation = ${operationEnum ? operationEnum.map(v => `'${v}'`).join(' | ') : 'string'};
@@ -53,61 +53,6 @@ export type LinkSpeed = ${linkSpeedEnum ? linkSpeedEnum.map(v => `'${v}'`).join(
 export type EncapType = ${encapTypeEnum ? encapTypeEnum.map(v => `'${v}'`).join(' | ') : 'string'};
 
 export type SimNodeType = ${simNodeTypeEnum ? simNodeTypeEnum.map(v => `'${v}'`).join(' | ') : 'string'};
-
-export interface TopologyNodeData {
-  [key: string]: unknown;
-  id: string;
-  name: string;
-  platform?: string;
-  template?: string;
-  nodeProfile?: string;
-  labels?: Record<string, string>;
-  isNew?: boolean;
-}
-
-export interface MemberLink {
-  name: string;
-  template?: string;
-  sourceInterface: string;
-  targetInterface: string;
-  labels?: Record<string, string>;
-}
-
-export interface LagGroup {
-  id: string;
-  name: string;
-  template?: string;
-  memberLinkIndices: number[];
-  labels?: Record<string, string>;
-}
-
-export interface MultihomeMemberLink {
-  name: string;
-  template?: string;
-  nodeInterfaces: Array<{
-    node: string;
-    interface: string;
-  }>;
-}
-
-export interface EsiLeafConnection {
-  nodeId: string;
-  nodeName: string;
-  leafHandle: string;
-  sourceHandle: string;
-}
-
-export interface TopologyEdgeData {
-  [key: string]: unknown;
-  id: string;
-  sourceNode: string;
-  targetNode: string;
-  memberLinks?: MemberLink[];
-  lagGroups?: LagGroup[];
-  isMultihomed?: boolean;
-  esiLeaves?: EsiLeafConnection[];
-  esiLagName?: string;
-}
 
 export interface NodeTemplate {
   name: string;
@@ -124,14 +69,6 @@ export interface LinkTemplate {
   labels?: Record<string, string>;
 }
 
-export interface NetworkNode {
-  name: string;
-  platform?: string;
-  template?: string;
-  nodeProfile?: string;
-  labels?: Record<string, string>;
-}
-
 export interface SimNodeTemplate {
   name: string;
   type?: SimNodeType;
@@ -140,56 +77,97 @@ export interface SimNodeTemplate {
   labels?: Record<string, string>;
 }
 
+export interface TopoNode {
+  name: string;
+  template?: string;
+  platform?: string;
+  nodeProfile?: string;
+  labels?: Record<string, string>;
+}
+
 export interface SimNode {
-  id: string;
   name: string;
   template?: string;
   type?: SimNodeType;
   image?: string;
   labels?: Record<string, string>;
-  position?: { x: number; y: number };
-  isNew?: boolean;
+}
+
+export interface EndpointLocal {
+  node: string;
+  interface?: string;
+}
+
+export interface EndpointRemote {
+  node: string;
+  interface?: string;
+}
+
+export interface EndpointSim {
+  simNode?: string;
+  simNodeInterface?: string;
+  node?: string;
+  interface?: string;
+}
+
+export interface Endpoint {
+  local?: EndpointLocal;
+  remote?: EndpointRemote;
+  sim?: EndpointSim;
+  type?: LinkType;
+  speed?: LinkSpeed;
+}
+
+export interface Link {
+  name?: string;
+  template?: string;
+  encapType?: EncapType;
+  labels?: Record<string, string>;
+  endpoints: Endpoint[];
 }
 
 export interface Simulation {
-  simNodeTemplates: SimNodeTemplate[];
-  simNodes: SimNode[];
-  topology?: unknown;
+  simNodeTemplates?: SimNodeTemplate[];
+  simNodes?: SimNode[];
+  topology?: unknown[];
 }
 
-export interface Clipboard {
-  nodes: import('@xyflow/react').Node<TopologyNodeData>[];
-  edges: import('@xyflow/react').Edge<TopologyEdgeData>[];
-  simNodes: SimNode[];
-  copiedLink?: {
-    edgeId: string;
-    template?: string;
+export interface TopologyMetadata {
+  name: string;
+  namespace?: string;
+}
+
+export interface TopologySpec {
+  operation?: Operation;
+  nodeTemplates?: NodeTemplate[];
+  linkTemplates?: LinkTemplate[];
+  nodes?: TopoNode[];
+  links?: Link[];
+  simulation?: Simulation;
+}
+
+export interface Topology {
+  apiVersion: 'topologies.eda.nokia.com/v1alpha1';
+  kind: 'NetworkTopology';
+  metadata: TopologyMetadata;
+  spec: TopologySpec;
+}
+
+export interface ParsedTopology {
+  apiVersion?: string;
+  kind?: string;
+  metadata?: {
+    name?: string;
+    namespace?: string;
   };
-}
-
-export interface TopologyState {
-  topologyName: string;
-  namespace: string;
-  operation: Operation;
-  nodeTemplates: NodeTemplate[];
-  linkTemplates: LinkTemplate[];
-  nodes: import('@xyflow/react').Node<TopologyNodeData>[];
-  edges: import('@xyflow/react').Edge<TopologyEdgeData>[];
-  simulation: Simulation;
-  selectedNodeId: string | null;
-  selectedEdgeId: string | null;
-  selectedEdgeIds: string[];
-  selectedSimNodeName: string | null;
-  selectedSimNodeNames: Set<string>;
-  expandedEdges: Set<string>;
-  selectedMemberLinkIndices: number[];
-  selectedLagId: string | null;
-  yamlRefreshCounter: number;
-  layoutVersion: number;
-  darkMode: boolean;
-  showSimNodes: boolean;
-  error: string | null;
-  clipboard: Clipboard;
+  spec?: {
+    operation?: string;
+    nodeTemplates?: NodeTemplate[];
+    linkTemplates?: LinkTemplate[];
+    nodes?: TopoNode[];
+    links?: Link[];
+    simulation?: Simulation;
+  };
 }
 `;
 
@@ -198,11 +176,5 @@ if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
 }
 
-fs.writeFileSync(outputPath, output);
-console.log(`Generated types at ${outputPath}`);
-console.log('Extracted enums:');
-console.log('--> Operation:', operationEnum);
-console.log('--> LinkType:', linkTypeEnum);
-console.log('--> LinkSpeed:', linkSpeedEnum);
-console.log('--> EncapType:', encapTypeEnum);
-console.log('--> SimNodeType:', simNodeTypeEnum);
+fs.writeFileSync(outputPath, yamlOutput);
+console.log(`Generated schema types at ${outputPath}`);

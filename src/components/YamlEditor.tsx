@@ -2,8 +2,8 @@ import { useCallback, useRef, useEffect } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Box } from '@mui/material';
-import { useTopologyStore } from '../lib/store';
-import { exportToYaml } from '../lib/converter';
+import { useTopologyStore } from '../lib/store/index';
+import { exportToYaml } from '../lib/yaml-converter';
 
 let editorInstance: editor.IStandaloneCodeEditor | null = null;
 
@@ -220,7 +220,7 @@ export default function YamlEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yamlRefreshCounter]);
 
-  const handleEditorMount: OnMount = (editor) => {
+  const handleEditorMount: OnMount = editor => {
     editorRef.current = editor;
     editorInstance = editor;
   };

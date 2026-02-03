@@ -40,14 +40,14 @@ test('shift+drag box selection selects multiple nodes', async ({ page, browserNa
   // Wait for selection to propagate to the store
   await page.waitForFunction(async () => {
     // @ts-expect-error - it's in the browser context!
-    const mod = await import('/src/lib/store.ts');
+    const mod = await import('/src/lib/store/index.ts');
     const state = mod.useTopologyStore.getState();
     return state.nodes.filter((n: { selected?: boolean }) => n.selected).length >= 1;
   }, { timeout: 5000 });
 
   const selectedCount = await page.evaluate(async () => {
     // @ts-expect-error - it's in the browser context!
-    const mod = await import('/src/lib/store.ts');
+    const mod = await import('/src/lib/store/index.ts');
     const state = mod.useTopologyStore.getState();
     return state.nodes.filter((n: { selected?: boolean }) => n.selected).length;
   });

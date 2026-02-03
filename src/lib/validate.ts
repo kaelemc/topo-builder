@@ -1,16 +1,7 @@
 import Ajv from 'ajv';
 import yaml from 'js-yaml';
 import schemaJson from '../static/schema.json';
-
-export interface ValidationError {
-  path: string;
-  message: string;
-}
-
-export interface ValidationResult {
-  valid: boolean;
-  errors: ValidationError[];
-}
+import type { ValidationError, ValidationResult } from '../types/ui';
 
 let ajvInstance: Ajv | null = null;
 
@@ -181,26 +172,32 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
       if (endpoint.local?.node && endpoint.local?.interface) {
         const node = endpoint.local.node;
         const iface = endpoint.local.interface;
-        if (!interfacesByNode.has(node)) {
-          interfacesByNode.set(node, new Map());
+        let nodeInterfaces = interfacesByNode.get(node);
+        if (!nodeInterfaces) {
+          nodeInterfaces = new Map();
+          interfacesByNode.set(node, nodeInterfaces);
         }
-        const nodeInterfaces = interfacesByNode.get(node)!;
-        if (!nodeInterfaces.has(iface)) {
-          nodeInterfaces.set(iface, []);
+        let ifaceList = nodeInterfaces.get(iface);
+        if (!ifaceList) {
+          ifaceList = [];
+          nodeInterfaces.set(iface, ifaceList);
         }
-        nodeInterfaces.get(iface)!.push({ linkName: link.name, linkIndex, endpointIndex, side: 'local' });
+        ifaceList.push({ linkName: link.name, linkIndex, endpointIndex, side: 'local' });
       }
       if (endpoint.remote?.node && endpoint.remote?.interface) {
         const node = endpoint.remote.node;
         const iface = endpoint.remote.interface;
-        if (!interfacesByNode.has(node)) {
-          interfacesByNode.set(node, new Map());
+        let nodeInterfaces = interfacesByNode.get(node);
+        if (!nodeInterfaces) {
+          nodeInterfaces = new Map();
+          interfacesByNode.set(node, nodeInterfaces);
         }
-        const nodeInterfaces = interfacesByNode.get(node)!;
-        if (!nodeInterfaces.has(iface)) {
-          nodeInterfaces.set(iface, []);
+        let ifaceList = nodeInterfaces.get(iface);
+        if (!ifaceList) {
+          ifaceList = [];
+          nodeInterfaces.set(iface, ifaceList);
         }
-        nodeInterfaces.get(iface)!.push({ linkName: link.name, linkIndex, endpointIndex, side: 'remote' });
+        ifaceList.push({ linkName: link.name, linkIndex, endpointIndex, side: 'remote' });
       }
     });
   });
@@ -210,7 +207,7 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
       if (usages.length > 1) {
         const linkNames = usages.map(u => u.linkName).join(', ');
         errors.push({
-          path: `/spec/links`,
+          path: '/spec/links',
           message: `Node "${nodeName}" has duplicate interface "${ifaceName}" used in links: ${linkNames}`,
         });
       }

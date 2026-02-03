@@ -23,7 +23,7 @@ import {
   Redo as RedoIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState } from 'react';
-import type { NodeTemplate, SimNodeTemplate, LinkTemplate } from '../types/topology';
+import type { NodeTemplate, SimNodeTemplate, LinkTemplate } from '../types/schema';
 
 interface ContextMenuProps {
   open: boolean;
@@ -155,7 +155,7 @@ export default function ContextMenu({
       <Popper open={open} anchorEl={anchorRef.current} placement="bottom-start" className="z-1300" transition>
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={200}>
-            <Paper ref={paperRef} elevation={8} onContextMenu={e => e.preventDefault()} sx={{ py: 0.5, minWidth: 180 }}>
+            <Paper ref={paperRef} elevation={8} onContextMenu={e => { e.preventDefault(); }} sx={{ py: 0.5, minWidth: 180 }}>
               {!hasSelection && (
                 <MenuItem onClick={() => { onAddNode(); onClose(); }}>
                   <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
@@ -172,8 +172,8 @@ export default function ContextMenu({
 
               {hasSelection === 'node' && hasTemplates && onChangeNodeTemplate && (
                 <Box
-                  onMouseEnter={() => setShowSubmenu(true)}
-                  onMouseLeave={() => setShowSubmenu(false)}
+                  onMouseEnter={() => { setShowSubmenu(true); }}
+                  onMouseLeave={() => { setShowSubmenu(false); }}
                   sx={{ position: 'relative' }}
                 >
                   <MenuItem>
@@ -201,8 +201,8 @@ export default function ContextMenu({
 
               {hasSelection === 'simNode' && hasSimTemplates && onChangeSimNodeTemplate && (
                 <Box
-                  onMouseEnter={() => setShowSubmenu(true)}
-                  onMouseLeave={() => setShowSubmenu(false)}
+                  onMouseEnter={() => { setShowSubmenu(true); }}
+                  onMouseLeave={() => { setShowSubmenu(false); }}
                   sx={{ position: 'relative' }}
                 >
                   <MenuItem>
@@ -241,8 +241,8 @@ export default function ContextMenu({
 
               {hasSelection === 'edge' && hasLinkTemplates && onChangeLinkTemplate && (
                 <Box
-                  onMouseEnter={() => setShowSubmenu(true)}
-                  onMouseLeave={() => setShowSubmenu(false)}
+                  onMouseEnter={() => { setShowSubmenu(true); }}
+                  onMouseLeave={() => { setShowSubmenu(false); }}
                   sx={{ position: 'relative' }}
                 >
                   <MenuItem>

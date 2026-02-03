@@ -36,9 +36,10 @@ import {
 } from '@mui/icons-material';
 import { toSvg } from 'html-to-image';
 import { getNodesBounds } from '@xyflow/react';
-import { useTopologyStore } from '../lib/store';
-import { exportToYaml, downloadYaml } from '../lib/converter';
-import { validateNetworkTopology, type ValidationResult } from '../lib/validate';
+import { useTopologyStore } from '../lib/store/index';
+import { exportToYaml, downloadYaml } from '../lib/yaml-converter';
+import { validateNetworkTopology } from '../lib/validate';
+import type { ValidationResult } from '../types/ui';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
 
 interface AppLayoutProps {
@@ -46,8 +47,8 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const darkMode = useTopologyStore((state) => state.darkMode);
-  const setDarkMode = useTopologyStore((state) => state.setDarkMode);
+  const darkMode = useTopologyStore(state => state.darkMode);
+  const setDarkMode = useTopologyStore(state => state.setDarkMode);
 
   const theme = useMemo(() => createTheme({
     cssVariables: true,
@@ -74,16 +75,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
     },
   }), [darkMode]);
 
-  const topologyName = useTopologyStore((state) => state.topologyName);
-  const namespace = useTopologyStore((state) => state.namespace);
-  const operation = useTopologyStore((state) => state.operation);
-  const nodes = useTopologyStore((state) => state.nodes);
-  const edges = useTopologyStore((state) => state.edges);
-  const nodeTemplates = useTopologyStore((state) => state.nodeTemplates);
-  const linkTemplates = useTopologyStore((state) => state.linkTemplates);
-  const simulation = useTopologyStore((state) => state.simulation);
-  const error = useTopologyStore((state) => state.error);
-  const setError = useTopologyStore((state) => state.setError);
+  const topologyName = useTopologyStore(state => state.topologyName);
+  const namespace = useTopologyStore(state => state.namespace);
+  const operation = useTopologyStore(state => state.operation);
+  const nodes = useTopologyStore(state => state.nodes);
+  const edges = useTopologyStore(state => state.edges);
+  const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
+  const linkTemplates = useTopologyStore(state => state.linkTemplates);
+  const simulation = useTopologyStore(state => state.simulation);
+  const error = useTopologyStore(state => state.error);
+  const setError = useTopologyStore(state => state.setError);
 
   const [copied, setCopied] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -96,24 +97,24 @@ export default function AppLayout({ children }: AppLayoutProps) {
       setDisplayedError(error);
     }
   }, [error]);
-  
+
   const getYaml = (withTimestamp = false) => exportToYaml({
     topologyName: withTimestamp ? `${topologyName}-${Date.now()}` : topologyName,
     namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation,
   });
 
-  const handleDownload = () => downloadYaml(getYaml(true), `${topologyName}-${Date.now()}.yaml`);
+  const handleDownload = () => { downloadYaml(getYaml(true), `${topologyName}-${Date.now()}.yaml`); };
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(getYaml(true));
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => { setCopied(false); }, 2000);
   };
 
   const handleCopyKubectl = async () => {
     await navigator.clipboard.writeText(`kubectl apply -f - <<'EOF'\n${getYaml(true)}\nEOF`);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => { setCopied(false); }, 2000);
   };
 
   const handleValidate = () => {
@@ -175,12 +176,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </IconButton>
               </Tooltip>
               <Tooltip title={copied ? 'Copied!' : 'Copy YAML'}>
-                <IconButton size="small" onClick={handleCopy} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleCopy(); }} sx={{ color: 'white' }}>
                   <CopyIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Copy as kubectl apply">
-                <IconButton size="small" onClick={handleCopyKubectl} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleCopyKubectl(); }} sx={{ color: 'white' }}>
                   <TerminalIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -190,17 +191,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </IconButton>
               </Tooltip>
               <Tooltip title="Save as SVG">
-                <IconButton size="small" onClick={handleExportSvg} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: 'white' }}>
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title={darkMode ? 'Light mode' : 'Dark mode'}>
-                <IconButton size="small" onClick={() => setDarkMode(!darkMode)} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { setDarkMode(!darkMode); }} sx={{ color: 'white' }}>
                   {darkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
                 </IconButton>
               </Tooltip>
               <Tooltip title="About">
-                <IconButton size="small" onClick={() => setAboutDialogOpen(true)} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { setAboutDialogOpen(true); }} sx={{ color: 'white' }}>
                   <Info fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -210,7 +211,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
         {children}
 
-        <Dialog open={validationDialogOpen} onClose={() => setValidationDialogOpen(false)} maxWidth="sm" fullWidth>
+        <Dialog open={validationDialogOpen} onClose={() => { setValidationDialogOpen(false); }} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {validationResult?.valid ? <SuccessIcon color="success" /> : <ErrorIcon color="error" />}
             {validationResult?.valid ? 'Validation Passed' : 'Validation Failed'}
@@ -239,11 +240,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setValidationDialogOpen(false)}>Close</Button>
+            <Button onClick={() => { setValidationDialogOpen(false); }}>Close</Button>
           </DialogActions>
         </Dialog>
 
-        <Dialog open={aboutDialogOpen} onClose={() => setAboutDialogOpen(false)} maxWidth="xs" fullWidth>
+        <Dialog open={aboutDialogOpen} onClose={() => { setAboutDialogOpen(false); }} maxWidth="xs" fullWidth>
           <DialogTitle>{TITLE} <Typography component="span" variant="caption" color="textSecondary" sx={{ fontFamily: 'monospace' }}>({__COMMIT_SHA__})</Typography></DialogTitle>
           <DialogContent sx={{ pb: 0 }}>
             <Container sx={{ textAlign: 'center' }}>
@@ -273,17 +274,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </Container>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setAboutDialogOpen(false)}>Close</Button>
+            <Button onClick={() => { setAboutDialogOpen(false); }}>Close</Button>
           </DialogActions>
         </Dialog>
 
         <Snackbar
           open={!!error}
           autoHideDuration={ERROR_DISPLAY_DURATION_MS}
-          onClose={(_, reason) => reason !== 'clickaway' && setError(null)}
+          onClose={(_, reason) => { if (reason !== 'clickaway') setError(null); }}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          <Alert onClose={() => setError(null)} severity="error" variant="filled">{displayedError}</Alert>
+          <Alert onClose={() => { setError(null); }} severity="error" variant="filled">{displayedError}</Alert>
         </Snackbar>
       </Box>
     </ThemeProvider>
