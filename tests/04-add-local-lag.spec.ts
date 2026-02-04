@@ -8,10 +8,9 @@ import {
   copySelected,
   memberLinkByIndex,
   openEdgeContextMenu,
-  parseLinks,
   pasteSelected,
 } from './lag-utils';
-import { getYamlContent } from './utils';
+import { getYamlContent, loadExpectedYaml } from './utils';
 
 test('Add a local LAG from bundled links', async ({ page }) => {
   await page.goto('/');
@@ -42,9 +41,7 @@ test('Add a local LAG from bundled links', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Create Local LAG' }).click();
 
   await page.getByRole('tab', { name: 'YAML' }).click();
-  const links = parseLinks(await getYamlContent(page));
-  const lagLink = links.find((link) => link.name?.includes('lag'));
+  const yaml = await getYamlContent(page);
 
-  expect(lagLink).toBeTruthy();
-  expect(lagLink?.endpoints?.length).toBe(4);
+  expect(yaml).toBe(loadExpectedYaml('04-add-local-lag.yaml'));
 });

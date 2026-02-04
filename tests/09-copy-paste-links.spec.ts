@@ -7,10 +7,9 @@ import {
   connectNodes,
   copySelected,
   openEdgeContextMenu,
-  parseLinks,
   pasteSelected,
 } from './lag-utils';
-import { getYamlContent } from './utils';
+import { getYamlContent, loadExpectedYaml } from './utils';
 
 test('Copy/paste links', async ({ page }) => {
   await page.goto('/');
@@ -29,6 +28,7 @@ test('Copy/paste links', async ({ page }) => {
   await pasteSelected(page);
 
   await page.getByRole('tab', { name: 'YAML' }).click();
-  const links = parseLinks(await getYamlContent(page));
-  expect(links.length).toBe(2);
+  const yaml = await getYamlContent(page);
+
+  expect(yaml).toBe(loadExpectedYaml('09-copy-paste-links.yaml'));
 });

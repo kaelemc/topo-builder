@@ -9,10 +9,9 @@ import {
   firstLagByLabels,
   memberLinkByIndex,
   openEdgeContextMenu,
-  parseLinks,
   pasteSelected,
 } from './lag-utils';
-import { getYamlContent } from './utils';
+import { getYamlContent, loadExpectedYaml } from './utils';
 
 test('Add a link to an existing LAG', async ({ page }) => {
   await page.goto('/');
@@ -47,9 +46,7 @@ test('Add a link to an existing LAG', async ({ page }) => {
   await endpointsHeader.locator('..').getByRole('button', { name: 'Add' }).click();
 
   await page.getByRole('tab', { name: 'YAML' }).click();
-  const links = parseLinks(await getYamlContent(page));
-  const lagLink = links.find((link) => link.name?.includes('lag'));
+  const yaml = await getYamlContent(page);
 
-  expect(lagLink).toBeTruthy();
-  expect(lagLink?.endpoints?.length).toBe(6);
+  expect(yaml).toBe(loadExpectedYaml('05-add-link-to-lag.yaml'));
 });

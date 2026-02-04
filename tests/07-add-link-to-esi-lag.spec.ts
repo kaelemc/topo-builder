@@ -7,10 +7,9 @@ import {
   addContextMenuItem,
   connectNodes,
   openEdgeContextMenu,
-  parseLinks,
   selectEdgesByNames,
 } from './lag-utils';
-import { getYamlContent } from './utils';
+import { getYamlContent, loadExpectedYaml } from './utils';
 
 test('Add a link to an existing ESI LAG', async ({ page }) => {
   await page.goto('/');
@@ -43,9 +42,7 @@ test('Add a link to an existing ESI LAG', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Merge into ESI-LAG' }).click();
 
   await page.getByRole('tab', { name: 'YAML' }).click();
-  const links = parseLinks(await getYamlContent(page));
-  const esiLag = links.find((link) => link.name?.includes('esi-lag'));
+  const yaml = await getYamlContent(page);
 
-  expect(esiLag).toBeTruthy();
-  expect(esiLag?.endpoints?.length).toBe(3);
+  expect(yaml).toBe(loadExpectedYaml('07-add-link-to-esi-lag.yaml'));
 });

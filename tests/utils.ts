@@ -1,5 +1,14 @@
 import type { Page } from '@playwright/test';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+export function loadExpectedYaml(filename: string): string {
+  const filepath = join(__dirname, filename);
+  return readFileSync(filepath, 'utf-8').trimEnd();
+}
 
 export async function waitForAppReady(page: Page): Promise<void> {
   await page.getByTestId('topology-canvas').waitFor();
