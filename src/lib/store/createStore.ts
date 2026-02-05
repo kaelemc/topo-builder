@@ -314,6 +314,18 @@ export const createTopologyStore = () => {
                 memberLinkIndices: [...lag.memberLinkIndices],
               }));
 
+              const esiLeaves = edge.data?.esiLeaves?.map(leaf => ({
+                nodeId: idMap.get(leaf.nodeId) || leaf.nodeId,
+                nodeName: nameMap.get(leaf.nodeName) || leaf.nodeName,
+              }));
+
+              const esiLagName = edge.data?.esiLagName && edge.data.sourceNode
+                ? edge.data.esiLagName.replace(
+                  edge.data.sourceNode,
+                  newSourceName || edge.data.sourceNode,
+                )
+                : edge.data?.esiLagName;
+
               newEdges.push({
                 ...edge,
                 id: newId,
@@ -327,6 +339,8 @@ export const createTopologyStore = () => {
                   targetNode: newTargetName || '',
                   memberLinks,
                   lagGroups,
+                  esiLeaves,
+                  esiLagName,
                 } : undefined,
               });
             }
