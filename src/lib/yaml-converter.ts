@@ -245,6 +245,7 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
             nodeType: 'node',
             platform,
             template: node.template,
+            serialNumber: node.serialNumber,
             nodeProfile,
             labels: userLabels,
           },
@@ -578,6 +579,10 @@ export function buildCrd(options: UIToYamlOptions): Topology {
     } else {
       if (node.data.platform) yamlNode.platform = node.data.platform;
       if (node.data.nodeProfile) yamlNode.nodeProfile = node.data.nodeProfile;
+    }
+
+    if (node.data.serialNumber) {
+      yamlNode.serialNumber = node.data.serialNumber;
     }
 
     if (node.data.labels) {

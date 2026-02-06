@@ -113,6 +113,15 @@ export function NodeEditor({
             ))}
           </Select>
         </FormControl>
+
+        <TextField
+          label="Serial Number"
+          size="small"
+          value={nodeData.serialNumber || ''}
+          onChange={e => { handleUpdateNodeField({ serialNumber: e.target.value || undefined }); }}
+          fullWidth
+        />
+
         <EditableLabelsSection
           labels={nodeData.labels}
           inheritedLabels={getInheritedNodeLabels(node, nodeTemplates)}

@@ -34,6 +34,7 @@ export interface SimNodeTemplate {
 export interface TopoNode {
   name: string;
   template?: string;
+  serialNumber?: string;
   platform?: string;
   nodeProfile?: string;
   labels?: Record<string, string>;

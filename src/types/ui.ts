@@ -15,6 +15,7 @@ export interface UINodeData {
   name: string;
   nodeType?: UINodeType;
   template?: string;
+  serialNumber?: string;
   labels?: Record<string, string>;
   isNew?: boolean;
   platform?: string;
