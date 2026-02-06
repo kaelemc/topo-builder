@@ -10,7 +10,7 @@ import { applyNodeChanges } from '@xyflow/react';
 
 import type { UINodeData, UINode, UIEdge } from '../../types/ui';
 import { generateUniqueName, validateNodeName } from '../utils';
-import { LABEL_NAME_PREFIX } from '../constants';
+import { ANNOTATION_NAME_PREFIX } from '../constants';
 import type { NodeTemplate } from '../../types/schema';
 
 export interface NodeState {
@@ -58,7 +58,7 @@ export const createNodeSlice: NodeSliceCreator = (set, get) => ({
     const allNodeNames = get().nodes.map(n => n.data.name);
     const template = templateName || get().nodeTemplates[0]?.name;
     const templateObj = get().nodeTemplates.find(t => t.name === template);
-    const namePrefix = templateObj?.labels?.[LABEL_NAME_PREFIX] || 'node';
+    const namePrefix = templateObj?.annotations?.[ANNOTATION_NAME_PREFIX] || 'node-';
     const name = generateUniqueName(namePrefix, allNodeNames, 1);
 
     const newNode: UINode = {
@@ -88,7 +88,7 @@ export const createNodeSlice: NodeSliceCreator = (set, get) => ({
 
     if (data.template && data.template !== currentNode?.data.template && !data.name) {
       const newTemplateObj = get().nodeTemplates.find(t => t.name === data.template);
-      const namePrefix = newTemplateObj?.labels?.[LABEL_NAME_PREFIX];
+      const namePrefix = newTemplateObj?.annotations?.[ANNOTATION_NAME_PREFIX];
       if (namePrefix) {
         const allNodeNames = get().nodes.filter(n => n.id !== id).map(n => n.data.name);
         newName = generateUniqueName(namePrefix, allNodeNames, 1);

@@ -185,7 +185,7 @@ function parseYamlTopoNodes(options: {
     if (!id) id = generateNodeId();
     nameToId.set(node.name, id);
 
-    const positionFromLabels = extractPosition(node.labels);
+    const positionFromLabels = extractPosition(node.annotations);
     const position = resolvePosition(positionFromLabels, existingNode?.position, defaultTopoNodePosition(index));
 
     const { platform, nodeProfile } = resolvePlatformAndProfile(node, nodeTemplateMap);
@@ -253,7 +253,7 @@ function parseYamlSimulation(options: {
     if (!id) id = generateSimNodeId();
     nameToId.set(simNode.name, id);
 
-    const positionFromLabels = extractPosition(simNode.labels);
+    const positionFromLabels = extractPosition(undefined);
     const position = resolvePosition(positionFromLabels, existingPosition, defaultSimNodePosition(index));
 
     const userLabels = filterUserLabels(simNode.labels);
@@ -566,7 +566,7 @@ function addStandardLinkToEdgeGroups(options: {
   if (!nameToId.has(sourceName)) return;
   if (!nameToId.has(targetName)) return;
 
-  const handles = extractHandles(link.labels);
+  const handles = extractHandles(link.annotations);
   const pairKey = edgePairKey(sourceName, targetName, handles.sourceHandle, handles.targetHandle);
   const edgeGroup = getOrCreateEdgeGroup(edgesByPair, pairKey, sourceName, targetName);
   const linkName = fallbackIfEmptyString(link.name, `${sourceName}-${targetName}`);
@@ -650,7 +650,7 @@ function yamlLinksToUIEdges(
     const parsedEndpoints = parseYamlLinkEndpoints(endpoints);
 
     if (isEsiLagLink(parsedEndpoints)) {
-      const handles = extractHandles(link.labels);
+      const handles = extractHandles(link.annotations);
       const esiLagEdge = buildEsiLagEdgeFromLink({
         link,
         parsedEndpoints,

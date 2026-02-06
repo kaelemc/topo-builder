@@ -12,13 +12,13 @@ test('Move node updates YAML coordinates', async ({ page }) => {
 
   await page.getByRole('tab', { name: 'YAML' }).click();
   const before = yaml.load(await getYamlContent(page)) as {
-    spec?: { nodes?: Array<{ name: string; labels?: Record<string, string> }> };
+    spec?: { nodes?: Array<{ name: string; annotations?: Record<string, string> }> };
   };
   const beforeNode = (before?.spec?.nodes ?? []).find((n) => n.name === 'leaf1');
   expect(beforeNode).toBeTruthy();
 
-  const xBefore = Number(beforeNode?.labels?.['topobuilder.eda.labs/x']);
-  const yBefore = Number(beforeNode?.labels?.['topobuilder.eda.labs/y']);
+  const xBefore = Number(beforeNode?.annotations?.['topobuilder.eda.labs/x']);
+  const yBefore = Number(beforeNode?.annotations?.['topobuilder.eda.labs/y']);
   expect(Number.isFinite(xBefore)).toBeTruthy();
   expect(Number.isFinite(yBefore)).toBeTruthy();
 
@@ -36,13 +36,13 @@ test('Move node updates YAML coordinates', async ({ page }) => {
 
   await page.getByRole('tab', { name: 'YAML' }).click();
   const after = yaml.load(await getYamlContent(page)) as {
-    spec?: { nodes?: Array<{ name: string; labels?: Record<string, string> }> };
+    spec?: { nodes?: Array<{ name: string; annotations?: Record<string, string> }> };
   };
   const afterNode = (after?.spec?.nodes ?? []).find((n) => n.name === 'leaf1');
   expect(afterNode).toBeTruthy();
 
-  const xAfter = Number(afterNode?.labels?.['topobuilder.eda.labs/x']);
-  const yAfter = Number(afterNode?.labels?.['topobuilder.eda.labs/y']);
+  const xAfter = Number(afterNode?.annotations?.['topobuilder.eda.labs/x']);
+  const yAfter = Number(afterNode?.annotations?.['topobuilder.eda.labs/y']);
   expect(Number.isFinite(xAfter)).toBeTruthy();
   expect(Number.isFinite(yAfter)).toBeTruthy();
 

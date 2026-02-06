@@ -4,7 +4,7 @@ import type { editor } from 'monaco-editor';
 import { Box } from '@mui/material';
 
 import { useTopologyStore } from '../lib/store';
-import { LABEL_EDGE_ID, LABEL_MEMBER_INDEX } from '../lib/constants';
+import { ANNOTATION_EDGE_ID, ANNOTATION_MEMBER_INDEX } from '../lib/constants';
 import { exportToYaml } from '../lib/yaml-converter';
 
 let editorInstance: editor.IStandaloneCodeEditor | null = null;
@@ -195,8 +195,8 @@ export function jumpToMemberLinkInEditor(edgeId: string, memberIndex: number): v
   const content = editorInstance.getValue();
   const lines = content.split('\n');
 
-  const edgeIdKeys = [LABEL_EDGE_ID, 'pos/edgeId'];
-  const memberIndexKeys = [LABEL_MEMBER_INDEX, 'pos/memberIndex'];
+  const edgeIdKeys = [ANNOTATION_EDGE_ID, 'pos/edgeId'];
+  const memberIndexKeys = [ANNOTATION_MEMBER_INDEX, 'pos/memberIndex'];
   const memberIndexString = String(memberIndex);
 
   for (let i = 0; i < lines.length; i++) {

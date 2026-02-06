@@ -17,6 +17,7 @@ import { useTopologyStore } from '../lib/store';
 import {
   NODE_PROFILE_SUGGESTIONS,
   PLATFORM_SUGGESTIONS,
+  ANNOTATION_NAME_PREFIX,
 } from '../lib/constants';
 import type {
   NodeTemplate,
@@ -244,6 +245,7 @@ function NodeTemplateEditor({
   existingPlatforms: string[];
 }) {
   const [localName, setLocalName] = useState(template.name);
+  const [localNamePrefix, setLocalNamePrefix] = useState(template.annotations?.[ANNOTATION_NAME_PREFIX] || '');
   const [localPlatform, setLocalPlatform] = useState(template.platform || '');
   const [localNodeProfile, setLocalNodeProfile] = useState(
     template.nodeProfile || '',
@@ -252,6 +254,7 @@ function NodeTemplateEditor({
   // Sync local state when template changes from external source
   useEffect(() => {
     setLocalName(template.name);
+    setLocalNamePrefix(template.annotations?.[ANNOTATION_NAME_PREFIX] || '');
     setLocalPlatform(template.platform || '');
     setLocalNodeProfile(template.nodeProfile || '');
   }, [template]);
@@ -307,6 +310,23 @@ function NodeTemplateEditor({
             )}
           />
         </Box>
+
+        <TextField
+          label="Name Prefix"
+          size="small"
+          value={localNamePrefix}
+          onChange={e => { setLocalNamePrefix(e.target.value); }}
+          onBlur={() => {
+            const existing = Object.entries(template.annotations ?? {}).filter(
+              ([k]) => k !== ANNOTATION_NAME_PREFIX,
+            );
+            const annotations = Object.fromEntries(
+              localNamePrefix ? [...existing, [ANNOTATION_NAME_PREFIX, localNamePrefix]] : existing,
+            );
+            onUpdate(template.name, { annotations: Object.keys(annotations).length > 0 ? annotations : undefined });
+          }}
+          fullWidth
+        />
 
         {/* Labels Section */}
         <Box>

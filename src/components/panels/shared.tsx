@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 
-import { CARD_BG, CARD_BORDER, INTERNAL_LABEL_PREFIX } from '../../lib/constants';
+import { CARD_BG, CARD_BORDER } from '../../lib/constants';
 
 const SPACE_BETWEEN = 'space-between';
 
@@ -106,9 +106,7 @@ export function PanelCard({
 }
 
 export function InheritedLabels({ labels }: { labels?: Record<string, string> }) {
-  const filteredLabels = Object.entries(labels || {}).filter(
-    ([key]) => !key.startsWith(INTERNAL_LABEL_PREFIX),
-  );
+  const filteredLabels = Object.entries(labels || {});
   if (filteredLabels.length === 0) return null;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -169,9 +167,7 @@ export function EditableLabelsSection({
     onUpdate(newLabels);
   };
 
-  const hasVisibleInheritedLabels = Object.keys(inheritedLabels || {}).some(
-    key => !key.startsWith(INTERNAL_LABEL_PREFIX),
-  );
+  const hasVisibleInheritedLabels = Object.keys(inheritedLabels || {}).length > 0;
 
   return (
     <Box>

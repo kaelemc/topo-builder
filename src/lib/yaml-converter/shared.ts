@@ -1,12 +1,11 @@
 import type { Endpoint } from '../../types/schema';
 import {
-  LABEL_POS_X,
-  LABEL_POS_Y,
-  LABEL_SRC_HANDLE,
-  LABEL_DST_HANDLE,
+  ANNOTATION_POS_X,
+  ANNOTATION_POS_Y,
+  ANNOTATION_SRC_HANDLE,
+  ANNOTATION_DST_HANDLE,
   DEFAULT_INTERFACE,
   DEFAULT_SIM_INTERFACE,
-  INTERNAL_LABEL_PREFIX,
 } from '../constants';
 
 // ============ ID Counters ============
@@ -70,35 +69,24 @@ function pickSimNodeInterface(sim: Endpoint['sim']): string | undefined {
   return undefined;
 }
 
-/**
- * Filter out internal topobuilder labels, returning only user labels.
- */
 export function filterUserLabels(labels?: Record<string, string>): Record<string, string> | undefined {
-  if (!labels) return undefined;
-
-  const filtered = Object.fromEntries(
-    Object.entries(labels).filter(([k]) => !k.startsWith(INTERNAL_LABEL_PREFIX)),
-  );
-
-  return Object.keys(filtered).length > 0 ? filtered : undefined;
+  if (!labels || Object.keys(labels).length === 0) return undefined;
+  return labels;
 }
 
-/**
- * Extract position from labels.
- */
-export function extractPosition(labels?: Record<string, string>): { x: number; y: number } | null {
-  if (!labels) return null;
-  const x = labels[LABEL_POS_X];
-  const y = labels[LABEL_POS_Y];
+export function extractPosition(annotations?: Record<string, string>): { x: number; y: number } | null {
+  if (!annotations) return null;
+  const x = annotations[ANNOTATION_POS_X];
+  const y = annotations[ANNOTATION_POS_Y];
   if (x && y) return { x: parseFloat(x), y: parseFloat(y) };
   return null;
 }
 
-export function extractHandles(labels?: Record<string, string>): { sourceHandle?: string; targetHandle?: string } {
-  if (!labels) return {};
+export function extractHandles(annotations?: Record<string, string>): { sourceHandle?: string; targetHandle?: string } {
+  if (!annotations) return {};
   const result: { sourceHandle?: string; targetHandle?: string } = {};
-  if (labels[LABEL_SRC_HANDLE]) result.sourceHandle = labels[LABEL_SRC_HANDLE];
-  if (labels[LABEL_DST_HANDLE]) result.targetHandle = labels[LABEL_DST_HANDLE];
+  if (annotations[ANNOTATION_SRC_HANDLE]) result.sourceHandle = annotations[ANNOTATION_SRC_HANDLE];
+  if (annotations[ANNOTATION_DST_HANDLE]) result.targetHandle = annotations[ANNOTATION_DST_HANDLE];
   return result;
 }
 

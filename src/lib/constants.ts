@@ -4,14 +4,13 @@ export const DRAWER_WIDTH = 500;
 export const DRAWER_TRANSITION_DURATION_MS = 225;
 export const EDGE_INTERACTION_WIDTH = 10;
 
-export const INTERNAL_LABEL_PREFIX = 'topobuilder.eda.labs/';
-export const LABEL_POS_X = 'topobuilder.eda.labs/x';
-export const LABEL_POS_Y = 'topobuilder.eda.labs/y';
-export const LABEL_EDGE_ID = 'topobuilder.eda.labs/edgeId';
-export const LABEL_MEMBER_INDEX = 'topobuilder.eda.labs/memberIndex';
-export const LABEL_SRC_HANDLE = 'topobuilder.eda.labs/srcHandle';
-export const LABEL_DST_HANDLE = 'topobuilder.eda.labs/dstHandle';
-export const LABEL_NAME_PREFIX = 'topobuilder.eda.labs/name-prefix';
+export const ANNOTATION_POS_X = 'topobuilder.eda.labs/x';
+export const ANNOTATION_POS_Y = 'topobuilder.eda.labs/y';
+export const ANNOTATION_EDGE_ID = 'topobuilder.eda.labs/edgeId';
+export const ANNOTATION_MEMBER_INDEX = 'topobuilder.eda.labs/memberIndex';
+export const ANNOTATION_SRC_HANDLE = 'topobuilder.eda.labs/srcHandle';
+export const ANNOTATION_DST_HANDLE = 'topobuilder.eda.labs/dstHandle';
+export const ANNOTATION_NAME_PREFIX = 'topobuilder.eda.labs/name-prefix';
 
 export const DEFAULT_INTERFACE = 'ethernet-1-1';
 export const DEFAULT_SIM_INTERFACE = 'eth1';

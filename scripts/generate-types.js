@@ -59,6 +59,7 @@ export interface NodeTemplate {
   platform?: string;
   nodeProfile?: string;
   labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
 export interface LinkTemplate {
@@ -84,6 +85,7 @@ export interface TopoNode {
   platform?: string;
   nodeProfile?: string;
   labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
 export interface SimNode {
@@ -124,6 +126,7 @@ export interface Link {
   template?: string;
   encapType?: EncapType;
   labels?: Record<string, string>;
+  annotations?: Record<string, string>;
   endpoints: Endpoint[];
 }
 

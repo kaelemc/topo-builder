@@ -19,12 +19,12 @@ import type {
   UISimulation,
 } from '../../types/ui';
 import {
-  LABEL_POS_X,
-  LABEL_POS_Y,
-  LABEL_EDGE_ID,
-  LABEL_MEMBER_INDEX,
-  LABEL_SRC_HANDLE,
-  LABEL_DST_HANDLE,
+  ANNOTATION_POS_X,
+  ANNOTATION_POS_Y,
+  ANNOTATION_EDGE_ID,
+  ANNOTATION_MEMBER_INDEX,
+  ANNOTATION_SRC_HANDLE,
+  ANNOTATION_DST_HANDLE,
   DEFAULT_INTERFACE,
   DEFAULT_SIM_INTERFACE,
 } from '../constants';
@@ -116,12 +116,14 @@ export function buildCrd(options: UIToYamlOptions): Topology {
       yamlNode.serialNumber = node.data.serialNumber;
     }
 
-    const labels: Record<string, string> = {
-      [LABEL_POS_X]: String(Math.round(node.position.x)),
-      [LABEL_POS_Y]: String(Math.round(node.position.y)),
-      ...node.data.labels,
+    if (node.data.labels && Object.keys(node.data.labels).length > 0) {
+      yamlNode.labels = node.data.labels;
+    }
+
+    yamlNode.annotations = {
+      [ANNOTATION_POS_X]: String(Math.round(node.position.x)),
+      [ANNOTATION_POS_Y]: String(Math.round(node.position.y)),
     };
-    yamlNode.labels = labels;
 
     return yamlNode;
   });
@@ -336,14 +338,14 @@ function buildUnlaggedLinksForEdge(options: {
 
 // ============ ESI-LAG Processing ============
 
-function createLabels(edge: Pick<UIEdge, 'id' | 'data'>, memberIndex: number): Record<string, string> {
-  const labels: Record<string, string> = {
-    [LABEL_EDGE_ID]: edge.id,
-    [LABEL_MEMBER_INDEX]: String(memberIndex),
+function createAnnotations(edge: Pick<UIEdge, 'id' | 'data'>, memberIndex: number): Record<string, string> {
+  const annotations: Record<string, string> = {
+    [ANNOTATION_EDGE_ID]: edge.id,
+    [ANNOTATION_MEMBER_INDEX]: String(memberIndex),
   };
-  if (edge.data?.sourceHandle) labels[LABEL_SRC_HANDLE] = edge.data.sourceHandle;
-  if (edge.data?.targetHandle) labels[LABEL_DST_HANDLE] = edge.data.targetHandle;
-  return labels;
+  if (edge.data?.sourceHandle) annotations[ANNOTATION_SRC_HANDLE] = edge.data.sourceHandle;
+  if (edge.data?.targetHandle) annotations[ANNOTATION_DST_HANDLE] = edge.data.targetHandle;
+  return annotations;
 }
 
 function isSimNodeId(nodeId: string): boolean {
@@ -548,7 +550,7 @@ function buildLagLinkForSimOnSource(options: {
 
   return {
     name: lag.name,
-    labels: createLabels(edge, firstMemberIndex),
+    annotations: createAnnotations(edge, firstMemberIndex),
     endpoints: lagMemberLinks.map(member => ({
       local: {
         node: topoNodeName,
@@ -578,7 +580,7 @@ function buildLagLinkForSimOnTarget(options: {
 
   return {
     name: lag.name,
-    labels: createLabels(edge, firstMemberIndex),
+    annotations: createAnnotations(edge, firstMemberIndex),
     endpoints: lagMemberLinks.map(member => ({
       local: {
         node: topoNodeName,
@@ -624,7 +626,7 @@ function buildLagLinkForTopoOnly(options: {
 
   return {
     name: lag.name,
-    labels: createLabels(edge, firstMemberIndex),
+    annotations: createAnnotations(edge, firstMemberIndex),
     endpoints,
   };
 }
@@ -712,7 +714,7 @@ function buildSimMemberLinkWithTargetSim(options: {
   return {
     name: member.name,
     template: member.template,
-    labels: createLabels(edge, memberIndex),
+    annotations: createAnnotations(edge, memberIndex),
     endpoints: [
       {
         local: {
@@ -740,7 +742,7 @@ function buildSimMemberLinkWithSourceSim(options: {
   return {
     name: member.name,
     template: member.template,
-    labels: createLabels(edge, memberIndex),
+    annotations: createAnnotations(edge, memberIndex),
     endpoints: [
       {
         local: {
@@ -767,7 +769,7 @@ function buildIslMemberLink(options: {
 
   const link: Link = {
     name: member.name,
-    labels: createLabels(edge, memberIndex),
+    annotations: createAnnotations(edge, memberIndex),
     endpoints: [
       {
         local: {

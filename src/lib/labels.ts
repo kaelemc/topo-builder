@@ -4,10 +4,10 @@ import type { NodeTemplate, LinkTemplate } from '../types/schema';
 import type { UINodeData, UIEdgeData, UIMemberLink, UILagGroup } from '../types/ui';
 
 import {
-  LABEL_POS_X,
-  LABEL_POS_Y,
-  LABEL_EDGE_ID,
-  LABEL_MEMBER_INDEX,
+  ANNOTATION_POS_X,
+  ANNOTATION_POS_Y,
+  ANNOTATION_EDGE_ID,
+  ANNOTATION_MEMBER_INDEX,
 } from './constants';
 
 export function getNodeLabels(
@@ -21,8 +21,15 @@ export function getNodeLabels(
   return {
     ...templateLabels,
     ...node.data.labels,
-    [LABEL_POS_X]: String(Math.round(node.position.x)),
-    [LABEL_POS_Y]: String(Math.round(node.position.y)),
+  };
+}
+
+export function getNodeAnnotations(
+  node: Node<UINodeData>,
+): Record<string, string> {
+  return {
+    [ANNOTATION_POS_X]: String(Math.round(node.position.x)),
+    [ANNOTATION_POS_Y]: String(Math.round(node.position.y)),
   };
 }
 
@@ -36,8 +43,6 @@ export function getInheritedNodeLabels(
 }
 
 export function getLinkLabels(
-  edge: Edge<UIEdgeData>,
-  memberIndex: number,
   memberLink: UIMemberLink | undefined,
   linkTemplates: LinkTemplate[],
 ): Record<string, string> {
@@ -48,8 +53,16 @@ export function getLinkLabels(
   return {
     ...templateLabels,
     ...memberLink?.labels,
-    [LABEL_EDGE_ID]: edge.id,
-    [LABEL_MEMBER_INDEX]: String(memberIndex),
+  };
+}
+
+export function getLinkAnnotations(
+  edge: Edge<UIEdgeData>,
+  memberIndex: number,
+): Record<string, string> {
+  return {
+    [ANNOTATION_EDGE_ID]: edge.id,
+    [ANNOTATION_MEMBER_INDEX]: String(memberIndex),
   };
 }
 
@@ -63,7 +76,6 @@ export function getInheritedLinkLabels(
 }
 
 export function getLagLabels(
-  edge: Edge<UIEdgeData>,
   lagGroup: UILagGroup,
   linkTemplates: LinkTemplate[],
 ): Record<string, string> {
@@ -71,13 +83,21 @@ export function getLagLabels(
     ? linkTemplates.find(t => t.name === lagGroup.template)?.labels
     : undefined;
 
-  const memberIndex = lagGroup.memberLinkIndices[0] ?? 0;
-
   return {
     ...templateLabels,
     ...lagGroup.labels,
-    [LABEL_EDGE_ID]: edge.id,
-    [LABEL_MEMBER_INDEX]: String(memberIndex),
+  };
+}
+
+export function getLagAnnotations(
+  edge: Edge<UIEdgeData>,
+  lagGroup: UILagGroup,
+): Record<string, string> {
+  const memberIndex = lagGroup.memberLinkIndices[0] ?? 0;
+
+  return {
+    [ANNOTATION_EDGE_ID]: edge.id,
+    [ANNOTATION_MEMBER_INDEX]: String(memberIndex),
   };
 }
 
