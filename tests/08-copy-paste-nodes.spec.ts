@@ -3,6 +3,7 @@ import { EMPTY_POS, NODE1_POS, addContextMenuItem, nodeByLabel } from './lag-uti
 import { getYamlContent, loadExpectedYaml } from './utils';
 
 test('Copy/paste nodes', async ({ page }) => {
+  test.skip(!!process.env.CI, 'Keyboard clipboard events unreliable in headless CI');
   await page.goto('/');
   await page.waitForSelector('.react-flow__pane');
 

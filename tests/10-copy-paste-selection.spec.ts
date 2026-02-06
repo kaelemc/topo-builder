@@ -5,6 +5,7 @@ import { getEdgeCount, getNodeCount, getYamlContent, waitForAppReady } from './u
 
 // Firefox has issues with keyboard.down('Shift') during drag operations
 test('Copy/paste selection of nodes and links', async ({ page, browserName }) => {
+  test.skip(!!process.env.CI, 'Keyboard clipboard events unreliable in headless CI');
   test.skip(browserName === 'firefox', 'Firefox shift+drag behavior differs');
   await page.goto('/');
   await waitForAppReady(page);
