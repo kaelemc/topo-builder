@@ -1,3 +1,6 @@
+// DO NOT EDIT THIS GENERATED FILE.
+// Run: node scripts/generate-types.js
+
 export type Operation = 'create' | 'replace' | 'replaceAll' | 'delete' | 'deleteAll';
 
 export type LinkType = 'edge' | 'interSwitch' | 'loopback';
