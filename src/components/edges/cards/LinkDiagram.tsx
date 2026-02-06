@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
 import { Speed as SpeedIcon, ViewInAr as ContainerIcon } from '@mui/icons-material';
+
 import { useTopologyStore } from '../../../lib/store';
 import spineIcon from '../../../static/icons/spine.svg?raw';
 import leafIcon from '../../../static/icons/leaf.svg?raw';
@@ -12,6 +13,11 @@ const RoleIcons: Record<string, string> = {
   borderleaf: leafIcon,
   superspine: superspineIcon,
 };
+
+const TEXT_PRIMARY = 'text.primary';
+const TEXT_SECONDARY = 'text.secondary';
+const NODE_LABEL_FONT_SIZE = '0.7rem';
+const INTERFACE_LABEL_FONT_SIZE = '0.65rem';
 
 interface LinkDiagramProps {
   localNode: string;
@@ -50,10 +56,10 @@ function NodeIcon({ role, simNodeType }: { role?: string; simNodeType?: SimNodeT
           borderRadius: '4px',
           bgcolor: 'action.hover',
           border: '1px dashed',
-          borderColor: 'text.secondary',
+          borderColor: TEXT_SECONDARY,
         }}
       >
-        <IconComponent sx={{ fontSize: 18, color: 'text.secondary' }} />
+        <IconComponent sx={{ fontSize: 18, color: TEXT_SECONDARY }} />
       </Box>
     );
   }
@@ -135,7 +141,7 @@ export function LinkDiagram({
             flex: 1,
             height: 0,
             borderTop: '1px dashed',
-            borderColor: 'text.secondary',
+            borderColor: TEXT_SECONDARY,
             opacity: 0.5,
           }}
         />
@@ -156,9 +162,9 @@ export function LinkDiagram({
         >
           <Box
             sx={{
-              fontSize: '0.7rem',
+              fontSize: NODE_LABEL_FONT_SIZE,
               fontWeight: 500,
-              color: 'text.primary',
+              color: TEXT_PRIMARY,
               textAlign: 'left',
             }}
           >
@@ -166,8 +172,8 @@ export function LinkDiagram({
           </Box>
           <Box
             sx={{
-              fontSize: '0.65rem',
-              color: 'text.secondary',
+              fontSize: INTERFACE_LABEL_FONT_SIZE,
+              color: TEXT_SECONDARY,
               textAlign: 'center',
             }}
           >
@@ -175,9 +181,9 @@ export function LinkDiagram({
           </Box>
           <Box
             sx={{
-              fontSize: '0.7rem',
+              fontSize: NODE_LABEL_FONT_SIZE,
               fontWeight: 500,
-              color: 'text.primary',
+              color: TEXT_PRIMARY,
               textAlign: 'right',
             }}
           >
@@ -196,9 +202,9 @@ export function LinkDiagram({
           <Box sx={{ textAlign: 'left' }}>
             <Box
               sx={{
-                fontSize: '0.7rem',
+                fontSize: NODE_LABEL_FONT_SIZE,
                 fontWeight: 500,
-                color: 'text.primary',
+                color: TEXT_PRIMARY,
               }}
             >
               {localNode}
@@ -206,8 +212,8 @@ export function LinkDiagram({
             {localInterface && (
               <Box
                 sx={{
-                  fontSize: '0.65rem',
-                  color: 'text.secondary',
+                  fontSize: INTERFACE_LABEL_FONT_SIZE,
+                  color: TEXT_SECONDARY,
                 }}
               >
                 {localInterface}
@@ -219,9 +225,9 @@ export function LinkDiagram({
           <Box sx={{ textAlign: 'right' }}>
             <Box
               sx={{
-                fontSize: '0.7rem',
+                fontSize: NODE_LABEL_FONT_SIZE,
                 fontWeight: 500,
-                color: 'text.primary',
+                color: TEXT_PRIMARY,
               }}
             >
               {remoteNode}
@@ -229,8 +235,8 @@ export function LinkDiagram({
             {remoteInterface && (
               <Box
                 sx={{
-                  fontSize: '0.65rem',
-                  color: 'text.secondary',
+                  fontSize: INTERFACE_LABEL_FONT_SIZE,
+                  color: TEXT_SECONDARY,
                 }}
               >
                 {remoteInterface}

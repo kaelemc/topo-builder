@@ -1,22 +1,27 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Box,
-  Typography,
-  TextField,
-  Select,
-  MenuItem,
-  Paper,
+  Chip,
   FormControl,
   InputLabel,
-  Chip,
+  MenuItem,
+  Paper,
+  Select,
+  TextField,
+  Typography,
 } from '@mui/material';
+import type { Edge } from '@xyflow/react';
+
+import { LagCard, LinkDiagram } from '../edges/cards';
+import { CARD_BG, CARD_BORDER } from '../../lib/constants';
 import { useTopologyStore } from '../../lib/store';
 import { formatName } from '../../lib/utils';
-import { PanelHeader, PanelSection } from './shared';
-import { LagCard, LinkDiagram } from '../edges/cards';
-import type { Edge } from '@xyflow/react';
 import type { SimNodeTemplate } from '../../types/schema';
 import type { UIEdgeData } from '../../types/ui';
+
+import { PanelHeader, PanelSection } from './shared';
+
+const SPACE_BETWEEN = 'space-between';
 
 interface SimNodeEditorProps {
   simNode: { name: string; template?: string; id?: string };
@@ -111,10 +116,10 @@ export function SimNodeEditor({
                   <Paper
                     key={edge.id}
                     variant="outlined"
-                    sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                    sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                     onClick={() => { useTopologyStore.getState().selectEdge(edge.id); }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', justifyContent: SPACE_BETWEEN, alignItems: 'center' }}>
                       <Typography variant="body2" fontWeight={500}>
                         {esiName}
                       </Typography>
@@ -153,7 +158,7 @@ export function SimNodeEditor({
                     <Paper
                       key={`${edge.id}-${idx}`}
                       variant="outlined"
-                      sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                      sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                       onClick={() => {
                         useTopologyStore.getState().selectEdge(edge.id);
                         useTopologyStore.getState().selectMemberLink(edge.id, idx, false);

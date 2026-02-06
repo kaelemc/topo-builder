@@ -1,5 +1,7 @@
-import { EdgeLabelRenderer, Position } from '@xyflow/react';
+import type { Position } from '@xyflow/react';
+import { EdgeLabelRenderer } from '@xyflow/react';
 import { Chip } from '@mui/material';
+
 import { createFannedBezierPath, calculateLinkOffsets } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { UIMemberLink, UILagGroup } from '../../types/ui';
@@ -26,6 +28,170 @@ interface BundleEdgeProps {
   onMemberLinkContextMenu: (e: React.MouseEvent, index: number) => void;
   onLagClick: (e: React.MouseEvent, lagId: string) => void;
   onLagContextMenu: (lagId: string) => void;
+}
+
+function MemberLinkVisual({
+  index,
+  curvePath,
+  isSelected,
+  isSimNodeEdge,
+  isConnectedToSelectedNode,
+  selectedMemberLinkIndices,
+  onDoubleClick,
+  onMemberLinkClick,
+  onMemberLinkContextMenu,
+  canBuildTestIds,
+  edgeNodeA,
+  edgeNodeB,
+}: {
+  index: number;
+  curvePath: string;
+  isSelected: boolean;
+  isSimNodeEdge: boolean;
+  isConnectedToSelectedNode?: boolean;
+  selectedMemberLinkIndices: number[];
+  onDoubleClick: (e: React.MouseEvent) => void;
+  onMemberLinkClick: (e: React.MouseEvent, index: number) => void;
+  onMemberLinkContextMenu: (e: React.MouseEvent, index: number) => void;
+  canBuildTestIds: boolean;
+  edgeNodeA?: string;
+  edgeNodeB?: string;
+}) {
+  const isSelectedMemberLink = isSelected && selectedMemberLinkIndices.includes(index);
+  const memberTestId =
+    canBuildTestIds && edgeNodeA && edgeNodeB
+      ? topologyMemberLinkTestId(edgeNodeA, edgeNodeB, index)
+      : undefined;
+
+  let strokeColor = 'var(--color-link-stroke)';
+  if (isConnectedToSelectedNode) {
+    strokeColor = 'var(--color-link-stroke-highlight)';
+  }
+  if (isSelectedMemberLink) {
+    strokeColor = 'var(--color-link-stroke-selected)';
+  }
+
+  return (
+    <g
+      onDoubleClick={onDoubleClick}
+      style={{ cursor: 'pointer' }}
+    >
+      <path
+        className="react-flow__edge-interaction"
+        data-testid={memberTestId}
+        d={curvePath}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={EDGE_INTERACTION_WIDTH}
+        onClick={e => { onMemberLinkClick(e, index); }}
+        onContextMenu={e => { onMemberLinkContextMenu(e, index); }}
+      />
+      <path
+        d={curvePath}
+        fill="none"
+        stroke={strokeColor}
+        strokeWidth={1}
+        strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
+        pointerEvents="none"
+      />
+    </g>
+  );
+}
+
+function LagVisual({
+  lag,
+  curvePath,
+  curveMidpoint,
+  isSelected,
+  isSimNodeEdge,
+  isConnectedToSelectedNode,
+  selectedLagId,
+  onDoubleClick,
+  onLagClick,
+  onLagContextMenu,
+  canBuildTestIds,
+  edgeNodeA,
+  edgeNodeB,
+}: {
+  lag: UILagGroup;
+  curvePath: string;
+  curveMidpoint: { x: number; y: number };
+  isSelected: boolean;
+  isSimNodeEdge: boolean;
+  isConnectedToSelectedNode?: boolean;
+  selectedLagId: string | null;
+  onDoubleClick: (e: React.MouseEvent) => void;
+  onLagClick: (e: React.MouseEvent, lagId: string) => void;
+  onLagContextMenu: (lagId: string) => void;
+  canBuildTestIds: boolean;
+  edgeNodeA?: string;
+  edgeNodeB?: string;
+}) {
+  const isLagSelected = isSelected && selectedLagId === lag.id;
+  const lagTestId =
+    canBuildTestIds && edgeNodeA && edgeNodeB
+      ? topologyLagTestId(edgeNodeA, edgeNodeB, lag.name)
+      : undefined;
+
+  let strokeColor = 'var(--color-link-stroke)';
+  if (isConnectedToSelectedNode) {
+    strokeColor = 'var(--color-link-stroke-highlight)';
+  }
+  if (isLagSelected) {
+    strokeColor = 'var(--color-link-stroke-selected)';
+  }
+
+  return (
+    <g>
+      <g
+        onDoubleClick={onDoubleClick}
+        style={{ cursor: 'pointer' }}
+      >
+        <path
+          className="react-flow__edge-interaction"
+          data-testid={lagTestId}
+          d={curvePath}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={EDGE_INTERACTION_WIDTH}
+          onClick={e => { onLagClick(e, lag.id); }}
+          onContextMenu={() => { onLagContextMenu(lag.id); }}
+        />
+        <path
+          d={curvePath}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth={1}
+          strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
+          pointerEvents="none"
+        />
+      </g>
+      <EdgeLabelRenderer>
+        <div
+          style={{
+            position: 'absolute',
+            transform: `translate(-50%, -50%) translate(${curveMidpoint.x}px, ${curveMidpoint.y}px)`,
+            pointerEvents: 'none',
+          }}
+        >
+          <Chip
+            label="LAG"
+            size="small"
+            title={`Local LAG: ${lag.name} (${lag.memberLinkIndices.length} endpoints)`}
+            sx={{
+              height: '14px',
+              fontSize: '8px',
+              fontWeight: 400,
+              bgcolor: 'var(--color-node-bg)',
+              color: 'var(--color-node-text)',
+              border: '1px solid var(--color-link-stroke)',
+              '& .MuiChip-label': { px: '3px' },
+            }}
+          />
+        </div>
+      </EdgeLabelRenderer>
+    </g>
+  );
 }
 
 export default function BundleEdge({
@@ -89,97 +255,43 @@ export default function BundleEdge({
         );
 
         if (item.type === 'link') {
-          const isSelectedMemberLink = isSelected && selectedMemberLinkIndices.includes(item.index);
-          const memberTestId =
-            canBuildTestIds && edgeNodeA && edgeNodeB
-              ? topologyMemberLinkTestId(edgeNodeA, edgeNodeB, item.index)
-              : undefined;
-
           return (
-            <g
+            <MemberLinkVisual
               key={`link-${item.index}`}
+              index={item.index}
+              curvePath={curvePath}
+              isSelected={isSelected}
+              isSimNodeEdge={isSimNodeEdge}
+              isConnectedToSelectedNode={isConnectedToSelectedNode}
+              selectedMemberLinkIndices={selectedMemberLinkIndices}
               onDoubleClick={handleDoubleClick}
-              style={{ cursor: 'pointer' }}
-            >
-              <path
-                className="react-flow__edge-interaction"
-                data-testid={memberTestId}
-                d={curvePath}
-                fill="none"
-                stroke="transparent"
-                strokeWidth={EDGE_INTERACTION_WIDTH}
-                onClick={e => { onMemberLinkClick(e, item.index); }}
-                onContextMenu={e => { onMemberLinkContextMenu(e, item.index); }}
-              />
-              <path
-                d={curvePath}
-                fill="none"
-                stroke={isSelectedMemberLink ? 'var(--color-link-stroke-selected)' : isConnectedToSelectedNode ? 'var(--color-link-stroke-highlight)' : 'var(--color-link-stroke)'}
-                strokeWidth={1}
-                strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
-                pointerEvents="none"
-              />
-            </g>
-          );
-        } else {
-          const isLagSelected = isSelected && selectedLagId === item.lag.id;
-          const lagTestId =
-            canBuildTestIds && edgeNodeA && edgeNodeB
-              ? topologyLagTestId(edgeNodeA, edgeNodeB, item.lag.name)
-              : undefined;
-
-          return (
-            <g key={`lag-${item.lag.id}`}>
-              <g
-                onDoubleClick={handleDoubleClick}
-                style={{ cursor: 'pointer' }}
-              >
-                <path
-                  className="react-flow__edge-interaction"
-                  data-testid={lagTestId}
-                  d={curvePath}
-                  fill="none"
-                  stroke="transparent"
-                  strokeWidth={EDGE_INTERACTION_WIDTH}
-                  onClick={e => { onLagClick(e, item.lag.id); }}
-                  onContextMenu={() => { onLagContextMenu(item.lag.id); }}
-                />
-                <path
-                  d={curvePath}
-                  fill="none"
-                  stroke={isLagSelected ? 'var(--color-link-stroke-selected)' : isConnectedToSelectedNode ? 'var(--color-link-stroke-highlight)' : 'var(--color-link-stroke)'}
-                  strokeWidth={1}
-                  strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
-                  pointerEvents="none"
-                />
-              </g>
-              <EdgeLabelRenderer>
-                <div
-                  style={{
-                    position: 'absolute',
-                    transform: `translate(-50%, -50%) translate(${curveMidpoint.x}px, ${curveMidpoint.y}px)`,
-                    pointerEvents: 'none',
-                  }}
-                >
-                  <Chip
-                    label="LAG"
-                    size="small"
-                    title={`Local LAG: ${item.lag.name} (${item.lag.memberLinkIndices.length} endpoints)`}
-                    sx={{
-                      height: '14px',
-                      fontSize: '8px',
-                      fontWeight: 400,
-                      bgcolor: 'var(--color-node-bg)',
-                      color: 'var(--color-node-text)',
-                      border: '1px solid var(--color-link-stroke)',
-                      '& .MuiChip-label': { px: '3px' },
-                    }}
-                  />
-                </div>
-              </EdgeLabelRenderer>
-            </g>
+              onMemberLinkClick={onMemberLinkClick}
+              onMemberLinkContextMenu={onMemberLinkContextMenu}
+              canBuildTestIds={canBuildTestIds}
+              edgeNodeA={edgeNodeA}
+              edgeNodeB={edgeNodeB}
+            />
           );
         }
+
+        return (
+          <LagVisual
+            key={`lag-${item.lag.id}`}
+            lag={item.lag}
+            curvePath={curvePath}
+            curveMidpoint={curveMidpoint}
+            isSelected={isSelected}
+            isSimNodeEdge={isSimNodeEdge}
+            isConnectedToSelectedNode={isConnectedToSelectedNode}
+            selectedLagId={selectedLagId}
+            onDoubleClick={handleDoubleClick}
+            onLagClick={onLagClick}
+            onLagContextMenu={onLagContextMenu}
+            canBuildTestIds={canBuildTestIds}
+            edgeNodeA={edgeNodeA}
+            edgeNodeB={edgeNodeB}
+          />
+        );
       })}
     </g>
   );

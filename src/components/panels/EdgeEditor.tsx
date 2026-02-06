@@ -1,27 +1,29 @@
 import { type RefObject } from 'react';
+import { Add as AddIcon, Delete as DeleteIcon, SubdirectoryArrowRight as ArrowIcon } from '@mui/icons-material';
 import {
   Box,
-  Typography,
-  TextField,
-  Select,
-  MenuItem,
   Button,
-  IconButton,
-  Paper,
-  FormControl,
-  InputLabel,
   Chip,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { Delete as DeleteIcon, Add as AddIcon, SubdirectoryArrowRight as ArrowIcon } from '@mui/icons-material';
+import type { Edge } from '@xyflow/react';
+
+import { LagCard } from '../edges/cards';
+import { CARD_BG, CARD_BORDER, DEFAULT_INTERFACE } from '../../lib/constants';
+import { getInheritedLagLabels, getInheritedLinkLabels } from '../../lib/labels';
 import { useTopologyStore } from '../../lib/store';
 import { formatName } from '../../lib/utils';
-import { getInheritedLinkLabels, getInheritedLagLabels } from '../../lib/labels';
-import { DEFAULT_INTERFACE } from '../../lib/constants';
-import { PanelHeader, PanelSection, EditableLabelsSection } from './shared';
-import { LagCard } from '../edges/cards';
-import type { Edge } from '@xyflow/react';
 import type { LinkTemplate } from '../../types/schema';
-import type { UIMemberLink, UILagGroup, UIEdgeData } from '../../types/ui';
+import type { UIEdgeData, UILagGroup, UIMemberLink } from '../../types/ui';
+
+import { EditableLabelsSection, PanelHeader, PanelSection } from './shared';
 
 interface EdgeEditorProps {
   edge: Edge<UIEdgeData>;
@@ -53,13 +55,6 @@ export function EdgeEditor({
 
   const nodeA = edgeData.targetNode;
   const nodeB = edgeData.sourceNode;
-
-  const indicesInLags = new Set<number>();
-  for (const lag of lagGroups) {
-    for (const idx of lag.memberLinkIndices) {
-      indicesInLags.add(idx);
-    }
-  }
 
   const handleUpdateLink = (index: number, update: Partial<UIMemberLink>) => {
     const newLinks = memberLinks.map((link, i) =>
@@ -100,18 +95,12 @@ export function EdgeEditor({
     triggerYamlRefresh();
   };
 
-  const selectedLag = selectedLagId ? lagGroups.find(lag => lag.id === selectedLagId) : null;
+  const renderLagEditorView = () => {
+    if (!selectedLagId) return null;
 
-  const linksToShow = isExpanded && memberLinks.length > 1
-    ? (selectedMemberLinkIndices.length > 0
-      ? selectedMemberLinkIndices
-        .filter(i => i >= 0 && i < memberLinks.length)
-        .map(i => ({ link: memberLinks[i], index: i }))
-      : [])
-    : memberLinks.map((link, index) => ({ link, index }));
+    const selectedLag = lagGroups.find(lag => lag.id === selectedLagId);
+    if (!selectedLag) return null;
 
-  // LAG editor view
-  if (selectedLag) {
     const lagMemberLinksWithIndices = selectedLag.memberLinkIndices
       .filter(i => i >= 0 && i < memberLinks.length)
       .map(i => ({ link: memberLinks[i], index: i }));
@@ -142,7 +131,7 @@ export function EdgeEditor({
           <TextField
             label="Name"
             size="small"
-            value={selectedLag.name || ''}
+            value={selectedLag.name}
             onChange={e => { handleUpdateLagGroup(selectedLag.id, { name: formatName(e.target.value) }); }}
             fullWidth
           />
@@ -187,7 +176,7 @@ export function EdgeEditor({
               <Paper
                 key={index}
                 variant="outlined"
-                sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                sx={{ p: '0.5rem', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
               >
                 <Box
                   sx={{
@@ -231,10 +220,15 @@ export function EdgeEditor({
         </PanelSection>
       </Box>
     );
-  }
+  };
 
-  // ESI-LAG editor view
-  if (edgeData.edgeType === 'esilag' && edgeData.esiLeaves) {
+  const lagEditorView = renderLagEditorView();
+  if (lagEditorView) return lagEditorView;
+
+  const renderEsiLagEditorView = () => {
+    if (edgeData.edgeType !== 'esilag') return null;
+    if (!edgeData.esiLeaves) return null;
+
     const esiLeaves = edgeData.esiLeaves;
     const removeLinkFromEsiLag = useTopologyStore.getState().removeLinkFromEsiLag;
 
@@ -328,7 +322,7 @@ export function EdgeEditor({
                 <Paper
                   key={index}
                   variant="outlined"
-                  sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                  sx={{ p: '0.5rem', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                 >
                   <Box
                     sx={{
@@ -374,126 +368,242 @@ export function EdgeEditor({
         </PanelSection>
       </Box>
     );
-  }
-
-  // Regular link editor
-  const addMemberLink = useTopologyStore.getState().addMemberLink;
-  const isShowingBundle = !isExpanded || memberLinks.length <= 1;
-
-  const handleAddLink = () => {
-    const lastLink = memberLinks[memberLinks.length - 1];
-    const nextNum = memberLinks.length + 1;
-    const incrementInterface = (iface: string) => {
-      const match = iface.match(/^(.+?)(\d+)$/);
-      if (match) {
-        return `${match[1]}${parseInt(match[2], 10) + 1}`;
-      }
-      return `${iface}-${nextNum}`;
-    };
-    addMemberLink(edge.id, {
-      name: `${nodeB}-${nodeA}-${nextNum}`,
-      template: lastLink?.template,
-      sourceInterface: incrementInterface(lastLink?.sourceInterface || DEFAULT_INTERFACE),
-      targetInterface: incrementInterface(lastLink?.targetInterface || DEFAULT_INTERFACE),
-    });
-    triggerYamlRefresh();
   };
 
-  if (memberLinks.length === 0) {
-    return (
-      <Box>
-        <PanelHeader title={`${nodeA} ↔ ${nodeB}`} />
-        <Typography color="text.secondary" textAlign="center" py="1rem">
-          No member links
-        </Typography>
-      </Box>
-    );
-  }
+  const esiLagEditorView = renderEsiLagEditorView();
+  if (esiLagEditorView) return esiLagEditorView;
 
-  if (linksToShow.length === 0) {
-    return (
-      <Box>
-        <PanelHeader
-          title={`${nodeA} ↔ ${nodeB}`}
-          actions={
-            <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
-              Add
-            </Button>
-          }
-        />
-        <Typography color="text.secondary" textAlign="center" py="1rem">
-          Select a link to edit
-        </Typography>
-      </Box>
-    );
-  }
+  const renderRegularLinkEditorView = () => {
+    const linksToShow = (() => {
+      if (isExpanded && memberLinks.length > 1) {
+        return selectedMemberLinkIndices.length > 0
+          ? selectedMemberLinkIndices
+            .filter(i => i >= 0 && i < memberLinks.length)
+            .map(i => ({ link: memberLinks[i], index: i }))
+          : [];
+      }
+      return memberLinks.map((link, index) => ({ link, index }));
+    })();
 
-  if (isShowingBundle && memberLinks.length > 1) {
-    const standaloneLinks = linksToShow.filter(({ index }) => !indicesInLags.has(index));
+    const addMemberLink = useTopologyStore.getState().addMemberLink;
+    const isShowingBundle = !isExpanded || memberLinks.length <= 1;
 
-    return (
-      <Box>
-        <PanelHeader
-          title={`${nodeA} ↔ ${nodeB}`}
-          actions={
-            <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
-              Add
-            </Button>
-          }
-        />
+    const indicesInLags = new Set<number>();
+    lagGroups.forEach(lag => { lag.memberLinkIndices.forEach(i => indicesInLags.add(i)); });
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {lagGroups.map(lag => (
-            <LagCard
-              key={lag.id}
-              lag={lag}
-              edgeId={edge.id}
-              localNode={nodeB}
-              otherNode={nodeA}
-            />
-          ))}
+    const handleAddLink = () => {
+      const lastLink = memberLinks[memberLinks.length - 1];
+      const nextNum = memberLinks.length + 1;
+      const incrementInterface = (iface: string) => {
+        const match = iface.match(/^(.+?)(\d+)$/);
+        if (match) {
+          return `${match[1]}${parseInt(match[2], 10) + 1}`;
+        }
+        return `${iface}-${nextNum}`;
+      };
+      addMemberLink(edge.id, {
+        name: `${nodeB}-${nodeA}-${nextNum}`,
+        template: lastLink?.template,
+        sourceInterface: incrementInterface(lastLink?.sourceInterface || DEFAULT_INTERFACE),
+        targetInterface: incrementInterface(lastLink?.targetInterface || DEFAULT_INTERFACE),
+      });
+      triggerYamlRefresh();
+    };
 
-          {standaloneLinks.map(({ link, index }, listIndex) => (
-            <Paper
-              key={index}
-              variant="outlined"
-              sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
-            >
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr auto',
-                    gap: '0.5rem',
-                    alignItems: 'center',
-                  }}
-                >
-                  <TextField
-                    label="Link Name"
-                    size="small"
-                    value={link.name}
-                    onChange={e =>
-                    { handleUpdateLink(index, { name: formatName(e.target.value) }); }
-                    }
-                    fullWidth
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => { handleDeleteLink(index); }}
+    if (memberLinks.length === 0) {
+      return (
+        <Box>
+          <PanelHeader title={`${nodeA} ↔ ${nodeB}`} />
+          <Typography color="text.secondary" textAlign="center" py="1rem">
+            No member links
+          </Typography>
+        </Box>
+      );
+    }
+
+    if (linksToShow.length === 0) {
+      return (
+        <Box>
+          <PanelHeader
+            title={`${nodeA} ↔ ${nodeB}`}
+            actions={
+              <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
+                Add
+              </Button>
+            }
+          />
+          <Typography color="text.secondary" textAlign="center" py="1rem">
+            Select a link to edit
+          </Typography>
+        </Box>
+      );
+    }
+
+    if (isShowingBundle && memberLinks.length > 1) {
+      const standaloneLinks = linksToShow.filter(({ index }) => !indicesInLags.has(index));
+
+      return (
+        <Box>
+          <PanelHeader
+            title={`${nodeA} ↔ ${nodeB}`}
+            actions={
+              <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
+                Add
+              </Button>
+            }
+          />
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {lagGroups.map(lag => (
+              <LagCard
+                key={lag.id}
+                lag={lag}
+                edgeId={edge.id}
+                localNode={nodeB}
+                otherNode={nodeA}
+              />
+            ))}
+
+            {standaloneLinks.map(({ link, index }, listIndex) => (
+              <Paper
+                key={index}
+                variant="outlined"
+                sx={{ p: '0.5rem', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
+              >
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto',
+                      gap: '0.5rem',
+                      alignItems: 'center',
+                    }}
                   >
-                    <DeleteIcon fontSize="small" color="error" />
-                  </IconButton>
-                </Box>
+                    <TextField
+                      label="Link Name"
+                      size="small"
+                      value={link.name}
+                      onChange={e => { handleUpdateLink(index, { name: formatName(e.target.value) }); }}
+                      fullWidth
+                    />
+                    <IconButton size="small" onClick={() => { handleDeleteLink(index); }}>
+                      <DeleteIcon fontSize="small" color="error" />
+                    </IconButton>
+                  </Box>
 
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <TextField
+                      label={`${nodeA} Interface`}
+                      size="small"
+                      value={link.targetInterface}
+                      onChange={e => { handleUpdateLink(index, { targetInterface: e.target.value }); }}
+                      inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
+                      slotProps={{ htmlInput: { 'data-testid': `link-endpoint-a-${listIndex}` } }}
+                      fullWidth
+                    />
+                    <TextField
+                      label={`${nodeB} Interface`}
+                      size="small"
+                      value={link.sourceInterface}
+                      onChange={e => { handleUpdateLink(index, { sourceInterface: e.target.value }); }}
+                      slotProps={{ htmlInput: { 'data-testid': `link-endpoint-b-${listIndex}` } }}
+                      fullWidth
+                    />
+                  </Box>
+
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Template</InputLabel>
+                    <Select
+                      label="Template"
+                      value={link.template || ''}
+                      onChange={e => { handleUpdateLink(index, { template: e.target.value }); }}
+                    >
+                      <MenuItem value="">None</MenuItem>
+                      {linkTemplates.map(t => (
+                        <MenuItem key={t.name} value={t.name}>
+                          {t.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Paper>
+            ))}
+          </Box>
+        </Box>
+      );
+    }
+
+    // Single link detailed editor
+    return (
+      <Box>
+        {linksToShow.map(({ link, index }, listIndex) => (
+          <Box key={index}>
+            <PanelHeader
+              title={`${nodeA} ↔ ${nodeB}`}
+              actions={
+                <IconButton
+                  size="small"
+                  onClick={() => { handleDeleteLink(index); }}
+                >
+                  <DeleteIcon fontSize="small" color="error" />
+                </IconButton>
+              }
+            />
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <TextField
+                label="Name"
+                size="small"
+                value={link.name}
+                onChange={e =>
+                { handleUpdateLink(index, { name: formatName(e.target.value) }); }
+                }
+                fullWidth
+              />
+
+              <FormControl size="small" fullWidth>
+                <InputLabel>Template</InputLabel>
+                <Select
+                  label="Template"
+                  value={link.template || ''}
+                  onChange={e =>
+                  { handleUpdateLink(index, { template: e.target.value }); }
+                  }
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {linkTemplates.map(t => (
+                    <MenuItem key={t.name} value={t.name}>
+                      {t.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <EditableLabelsSection
+                labels={link.labels}
+                inheritedLabels={getInheritedLinkLabels(link, linkTemplates)}
+                onUpdate={labels => { handleUpdateLink(index, { labels }); }}
+              />
+            </Box>
+
+            <PanelSection title="Endpoints">
+              <Paper variant="outlined" sx={{ p: '0.5rem', bgcolor: CARD_BG, borderColor: CARD_BORDER }}>
                 <Box
                   sx={{
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
                     gap: '0.5rem',
+                    alignItems: 'center',
                   }}
                 >
                   <TextField
-                    label={`${nodeA} Interface`}
+                    label={nodeA}
                     size="small"
                     value={link.targetInterface}
                     onChange={e =>
@@ -502,11 +612,11 @@ export function EdgeEditor({
                     }); }
                     }
                     inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
-                    slotProps={{ htmlInput: { 'data-testid': `link-endpoint-a-${listIndex}` } }}
+                    slotProps={{ htmlInput: { tabIndex: 1, 'data-testid': `link-endpoint-a-${listIndex}` } }}
                     fullWidth
                   />
                   <TextField
-                    label={`${nodeB} Interface`}
+                    label={nodeB}
                     size="small"
                     value={link.sourceInterface}
                     onChange={e =>
@@ -514,129 +624,18 @@ export function EdgeEditor({
                       sourceInterface: e.target.value,
                     }); }
                     }
-                    slotProps={{ htmlInput: { 'data-testid': `link-endpoint-b-${listIndex}` } }}
+                    inputRef={listIndex === 0 ? targetInterfaceRef : undefined}
+                    slotProps={{ htmlInput: { tabIndex: 2, 'data-testid': `link-endpoint-b-${listIndex}` } }}
                     fullWidth
                   />
                 </Box>
-
-                <FormControl size="small" fullWidth>
-                  <InputLabel>Template</InputLabel>
-                  <Select
-                    label="Template"
-                    value={link.template || ''}
-                    onChange={e =>
-                    { handleUpdateLink(index, { template: e.target.value }); }
-                    }
-                  >
-                    <MenuItem value="">None</MenuItem>
-                    {linkTemplates.map(t => (
-                      <MenuItem key={t.name} value={t.name}>
-                        {t.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            </Paper>
-          ))}
-        </Box>
+              </Paper>
+            </PanelSection>
+          </Box>
+        ))}
       </Box>
     );
-  }
+  };
 
-  // Single link detailed editor
-  return (
-    <Box>
-      {linksToShow.map(({ link, index }, listIndex) => (
-        <Box key={index}>
-          <PanelHeader
-            title={`${nodeA} ↔ ${nodeB}`}
-            actions={
-              <IconButton
-                size="small"
-                onClick={() => { handleDeleteLink(index); }}
-              >
-                <DeleteIcon fontSize="small" color="error" />
-              </IconButton>
-            }
-          />
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <TextField
-              label="Name"
-              size="small"
-              value={link.name}
-              onChange={e =>
-              { handleUpdateLink(index, { name: formatName(e.target.value) }); }
-              }
-              fullWidth
-            />
-
-            <FormControl size="small" fullWidth>
-              <InputLabel>Template</InputLabel>
-              <Select
-                label="Template"
-                value={link.template || ''}
-                onChange={e =>
-                { handleUpdateLink(index, { template: e.target.value }); }
-                }
-              >
-                <MenuItem value="">None</MenuItem>
-                {linkTemplates.map(t => (
-                  <MenuItem key={t.name} value={t.name}>
-                    {t.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <EditableLabelsSection
-              labels={link.labels}
-              inheritedLabels={getInheritedLinkLabels(link, linkTemplates)}
-              onUpdate={labels => { handleUpdateLink(index, { labels }); }}
-            />
-          </Box>
-
-          <PanelSection title="Endpoints">
-            <Paper variant="outlined" sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '0.5rem',
-                  alignItems: 'center',
-                }}
-              >
-                <TextField
-                  label={nodeA}
-                  size="small"
-                  value={link.targetInterface}
-                  onChange={e =>
-                  { handleUpdateLink(index, {
-                    targetInterface: e.target.value,
-                  }); }
-                  }
-                  inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
-                  slotProps={{ htmlInput: { tabIndex: 1, 'data-testid': `link-endpoint-a-${listIndex}` } }}
-                  fullWidth
-                />
-                <TextField
-                  label={nodeB}
-                  size="small"
-                  value={link.sourceInterface}
-                  onChange={e =>
-                  { handleUpdateLink(index, {
-                    sourceInterface: e.target.value,
-                  }); }
-                  }
-                  inputRef={listIndex === 0 ? targetInterfaceRef : undefined}
-                  slotProps={{ htmlInput: { tabIndex: 2, 'data-testid': `link-endpoint-b-${listIndex}` } }}
-                  fullWidth
-                />
-              </Box>
-            </Paper>
-          </PanelSection>
-        </Box>
-      ))}
-    </Box>
-  );
+  return renderRegularLinkEditorView();
 }

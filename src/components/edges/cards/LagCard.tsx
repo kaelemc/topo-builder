@@ -1,7 +1,9 @@
-import { Box, Typography, Paper, Chip } from '@mui/material';
+import { Box, Chip, Paper, Typography } from '@mui/material';
+
 import { useTopologyStore } from '../../../lib/store';
-import { LinkDiagram } from './LinkDiagram';
 import type { UILagGroup } from '../../../types/ui';
+
+import { LinkDiagram } from './LinkDiagram';
 
 interface LagCardProps {
   lag: UILagGroup;
