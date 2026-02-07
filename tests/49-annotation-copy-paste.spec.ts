@@ -14,7 +14,7 @@ test('Copy/paste annotations', async ({ page, browserName }) => {
     // @ts-expect-error Vite dev path
     const mod = await import('/src/lib/store/index.ts');
     const state = mod.useTopologyStore.getState();
-    state.addAnnotation({ type: 'text', position: { x: 200, y: 200 }, text: 'CopyMe', fontSize: 14, fontColor: '#7d33f2' });
+    state.addAnnotation({ type: 'text', position: { x: 200, y: 200 }, text: 'CopyMe', fontSize: 14, fontColor: '#bcd0fb' });
   });
 
   await page.evaluate(async () => {

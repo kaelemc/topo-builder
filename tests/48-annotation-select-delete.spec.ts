@@ -10,8 +10,8 @@ test('Select all annotations and Delete removes them', async ({ page }) => {
     // @ts-expect-error Vite dev path
     const mod = await import('/src/lib/store/index.ts');
     const state = mod.useTopologyStore.getState();
-    state.addAnnotation({ type: 'text', position: { x: 100, y: 100 }, text: 'Test', fontSize: 14, fontColor: '#7d33f2' });
-    state.addAnnotation({ type: 'shape', position: { x: 300, y: 300 }, shapeType: 'rectangle', width: 200, height: 100, strokeColor: '#7d33f2', strokeWidth: 2, strokeStyle: 'solid' });
+    state.addAnnotation({ type: 'text', position: { x: 100, y: 100 }, text: 'Test', fontSize: 14, fontColor: '#bcd0fb' });
+    state.addAnnotation({ type: 'shape', position: { x: 300, y: 300 }, shapeType: 'rectangle', width: 200, height: 100, strokeColor: '#314354', fillColor: '#1A222E', strokeWidth: 2, strokeStyle: 'solid' });
   });
 
   const countBefore = await page.evaluate(async () => {
