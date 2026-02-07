@@ -162,6 +162,7 @@ export const createNodeSlice: NodeSliceCreator = (set, get) => ({
         }),
       });
     }
+    get().triggerYamlRefresh();
   },
 
   deleteNode: (id: string) => {
