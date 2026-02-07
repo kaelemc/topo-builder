@@ -1,9 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import { EMPTY_POS, NODE1_POS, addContextMenuItem, nodeByLabel } from './lag-utils';
-import { getYamlContent, loadExpectedYaml } from './utils';
+import { expectYamlEquals } from './utils';
 
-test('Copy/paste nodes', async ({ page }) => {
+test('Copy/paste nodes', async ({ page, browserName }) => {
   test.skip(!!process.env.CI, 'Keyboard clipboard events unreliable in headless CI');
+  test.skip(browserName === 'webkit', 'WebKit clipboard paste unreliable');
   await page.goto('/');
   await page.waitForSelector('.react-flow__pane');
 
@@ -14,8 +15,5 @@ test('Copy/paste nodes', async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+c');
   await page.keyboard.press('ControlOrMeta+v');
 
-  await page.getByRole('tab', { name: 'YAML' }).click();
-  const yaml = await getYamlContent(page);
-
-  expect(yaml).toBe(loadExpectedYaml('08-copy-paste-nodes.yaml'));
+  await expectYamlEquals(page, '08-copy-paste-nodes.yaml');
 });

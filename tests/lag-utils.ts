@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import yaml from 'js-yaml';
+import { canvasPane } from './utils';
 import {
   topologyEdgeKey,
   topologyEdgeTestId,
@@ -113,3 +114,42 @@ export const pasteSelected = async (page: Page) => {
 export const openEdgeContextMenu = async (page: Page, sourceLabel: string, targetLabel: string) => {
   await clickEdgeBetween(page, sourceLabel, targetLabel, { button: 'right' });
 };
+
+export async function addTwoNodesAndConnect(page: Page): Promise<void> {
+  await addContextMenuItem(page, NODE1_POS, 'Add Node');
+  await addContextMenuItem(page, NODE2_POS, 'Add Node');
+  await connectNodes(page, 'leaf1', 'leaf2');
+  await page.waitForFunction(
+    () => document.querySelectorAll('.react-flow__edge').length === 1,
+  );
+}
+
+export async function createLocalLagBetween(page: Page, nodeA: string, nodeB: string): Promise<void> {
+  await clickEdgeBetween(page, nodeA, nodeB);
+  await openEdgeContextMenu(page, nodeA, nodeB);
+  await copySelected(page);
+  await openEdgeContextMenu(page, nodeA, nodeB);
+  await pasteSelected(page);
+
+  await page.waitForSelector('[title*="links - click to expand"]');
+  await page.getByTitle(/links - click to expand/i).click();
+
+  await memberLinkByIndex(page, nodeA, nodeB, 0).waitFor();
+  await memberLinkByIndex(page, nodeA, nodeB, 1).waitFor();
+
+  await memberLinkByIndex(page, nodeA, nodeB, 0).click();
+  await memberLinkByIndex(page, nodeA, nodeB, 1).click({ modifiers: ['Shift'] });
+
+  await memberLinkByIndex(page, nodeA, nodeB, 1).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Create Local LAG' }).click();
+}
+
+export async function undoViaContextMenu(page: Page): Promise<void> {
+  await canvasPane(page).click({ button: 'right', position: EMPTY_POS });
+  await page.getByRole('menuitem', { name: 'Undo' }).click();
+}
+
+export async function redoViaContextMenu(page: Page): Promise<void> {
+  await canvasPane(page).click({ button: 'right', position: EMPTY_POS });
+  await page.getByRole('menuitem', { name: 'Redo' }).click();
+}

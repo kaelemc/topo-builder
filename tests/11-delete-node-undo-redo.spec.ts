@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import yaml from 'js-yaml';
-import { NODE1_POS, NODE2_POS, EMPTY_POS, addContextMenuItem, nodeByLabel } from './lag-utils';
+import { NODE1_POS, NODE2_POS, addContextMenuItem, nodeByLabel, undoViaContextMenu, redoViaContextMenu } from './lag-utils';
 import { canvasPane, getNodeCount, getYamlContent } from './utils';
 
 test('Delete node, undo, redo', async ({ page }) => {
@@ -24,16 +24,11 @@ test('Delete node, undo, redo', async ({ page }) => {
   const namesAfterDelete = (afterDelete?.spec?.nodes ?? []).map((n) => n.name);
   expect(namesAfterDelete).toEqual(['leaf1']);
 
-  // Undo deletion from the pane context menu.
-  await canvasPane(page).click({ button: 'right', position: EMPTY_POS });
-  await page.getByRole('menuitem', { name: 'Undo' }).click();
-
+  // Undo deletion.
+  await undoViaContextMenu(page);
   expect(await getNodeCount(page)).toBe(2);
 
   // Redo deletion.
-  await canvasPane(page).click({ button: 'right', position: EMPTY_POS });
-  await page.getByRole('menuitem', { name: 'Redo' }).click();
-
+  await redoViaContextMenu(page);
   expect(await getNodeCount(page)).toBe(1);
 });
-

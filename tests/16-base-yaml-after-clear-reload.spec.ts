@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { canvasPane, getYamlContent, loadExpectedYaml } from './utils';
+import { test } from '@playwright/test';
+import { canvasPane, expectYamlEquals } from './utils';
 import { addContextMenuItem, NODE1_POS } from './lag-utils';
 
 test('Base YAML restored after deleting YAML content', async ({ page }) => {
@@ -19,8 +19,5 @@ test('Base YAML restored after deleting YAML content', async ({ page }) => {
   // Add a node — should use restored base template (leaf prefix, not node-)
   await addContextMenuItem(page, NODE1_POS, 'Add Node');
 
-  await page.getByRole('tab', { name: 'YAML' }).click();
-  const yaml = await getYamlContent(page);
-
-  expect(yaml).toBe(loadExpectedYaml('16-base-yaml-after-clear-reload.yaml'));
+  await expectYamlEquals(page, '16-base-yaml-after-clear-reload.yaml');
 });

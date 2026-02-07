@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import {
   NODE1_POS,
   NODE2_POS,
@@ -8,7 +8,7 @@ import {
   openEdgeContextMenu,
   selectEdgesByNames,
 } from './lag-utils';
-import { getYamlContent, loadExpectedYaml } from './utils';
+import { expectYamlEquals } from './utils';
 
 test('Add an ESI LAG', async ({ page }) => {
   await page.goto('/');
@@ -29,8 +29,5 @@ test('Add an ESI LAG', async ({ page }) => {
   await openEdgeContextMenu(page, 'testman1', 'leaf2');
   await page.getByRole('menuitem', { name: 'Create ESI-LAG' }).click();
 
-  await page.getByRole('tab', { name: 'YAML' }).click();
-  const yaml = await getYamlContent(page);
-
-  expect(yaml).toBe(loadExpectedYaml('06-add-esi-lag.yaml'));
+  await expectYamlEquals(page, '06-add-esi-lag.yaml');
 });

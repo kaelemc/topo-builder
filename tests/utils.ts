@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -38,4 +38,10 @@ export async function getEdgeCount(page: Page): Promise<number> {
 
 export function canvasPane(page: Page) {
   return page.getByTestId('topology-canvas').locator('.react-flow__pane');
+}
+
+export async function expectYamlEquals(page: Page, fixtureFilename: string): Promise<void> {
+  await page.getByRole('tab', { name: 'YAML' }).click();
+  const yaml = await getYamlContent(page);
+  expect(yaml).toBe(loadExpectedYaml(fixtureFilename));
 }

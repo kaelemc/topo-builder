@@ -1,20 +1,15 @@
 import { test, expect } from '@playwright/test';
 import yaml from 'js-yaml';
-import { NODE1_POS, NODE2_POS, addContextMenuItem, connectNodes } from './lag-utils';
+import { addTwoNodesAndConnect } from './lag-utils';
 import { getEdgeCount, getNodeCount, getYamlContent, waitForAppReady } from './utils';
 
-// Firefox has issues with keyboard.down('Shift') during drag operations
 test('Copy/paste selection of nodes and links', async ({ page, browserName }) => {
   test.skip(!!process.env.CI, 'Keyboard clipboard events unreliable in headless CI');
   test.skip(browserName === 'firefox', 'Firefox shift+drag behavior differs');
   await page.goto('/');
   await waitForAppReady(page);
 
-  await addContextMenuItem(page, NODE1_POS, 'Add Node');
-  await addContextMenuItem(page, NODE2_POS, 'Add Node');
-
-  await connectNodes(page, 'leaf1', 'leaf2');
-  await page.waitForFunction(() => document.querySelectorAll('.react-flow__edge').length === 1);
+  await addTwoNodesAndConnect(page);
 
   // Wait for nodes to be rendered
   const node1 = page.getByTestId('topology-node-leaf1');
@@ -51,7 +46,7 @@ test('Copy/paste selection of nodes and links', async ({ page, browserName }) =>
       state.edges.filter((e: { selected?: boolean }) => e.selected).length === 1;
   }, { timeout: 5000 });
 
-  // Copy selection - after shift+drag, keyboard focus should be on the canvas
+  // Copy selection
   await page.keyboard.press('ControlOrMeta+c');
   await page.waitForTimeout(100);
 
