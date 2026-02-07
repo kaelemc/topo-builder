@@ -245,7 +245,7 @@ export const createSelectionSlice: SelectionSliceCreator = (set, get) => ({
     const lastNode = lastName ? get().nodes.find(n => n.data.nodeType === 'simnode' && n.data.name === lastName) : null;
 
     set({
-      selectedSimNodeNames: names.size === 0 ? EMPTY_STRING_SET : names,
+      selectedSimNodeNames: names.size === 0 ? EMPTY_STRING_SET : new Set(names),
       selectedSimNodeName: lastName,
       selectedNodeId: lastNode?.id || null,
       selectedNodeIds: simNodeIds,
