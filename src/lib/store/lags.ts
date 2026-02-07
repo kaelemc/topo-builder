@@ -145,9 +145,21 @@ export const createLagSlice: LagSliceCreator = (set, get) => ({
     if (lag.memberLinkIndices.length <= 2) {
       // Remove the LAG entirely if only 2 members remain
       set({
-        edges: edges.map(e =>
-          e.id === edgeId && e.data ? { ...e, data: { ...e.data, lagGroups: lagGroups.filter(l => l.id !== lagId) } } : e,
-        ),
+        edges: edges.map(e => {
+          if (e.id === edgeId && e.data) {
+            const updatedLagGroups = lagGroups.filter(l => l.id !== lagId);
+            const hasAnyLagGroups = updatedLagGroups.length > 0;
+            return {
+              ...e,
+              data: {
+                ...e.data,
+                lagGroups: updatedLagGroups,
+                edgeType: hasAnyLagGroups ? e.data.edgeType : 'normal',
+              },
+            };
+          }
+          return e;
+        }),
         selectedLagId: null,
       });
     } else {
