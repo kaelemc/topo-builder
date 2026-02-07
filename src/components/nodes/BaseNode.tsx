@@ -117,7 +117,7 @@ export default function BaseNode({
 
   const connectedPositions = useMemo(() => {
     return computeConnectedPositions(nodeId, edges, nodesRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [edges, nodeId]);
 
   const alwaysShowAll = selected || isConnecting;
