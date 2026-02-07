@@ -369,18 +369,24 @@ function SidePanel({
   const borderColor = isDark ? '#424242' : '#e0e0e0';
   const contentBg = isDark ? '#121212' : '#ffffff';
 
-  const [panelWidth, setPanelWidth] = useState(DRAWER_WIDTH);
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('topology-panel-width');
+    return saved ? parseInt(saved, 10) || DRAWER_WIDTH : DRAWER_WIDTH;
+  });
   const dragging = useRef(false);
+  const widthRef = useRef(panelWidth);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     dragging.current = true;
     const onMouseMove = (ev: MouseEvent) => {
       const newWidth = Math.max(DRAWER_WIDTH, Math.min(window.innerWidth * 0.8, window.innerWidth - ev.clientX));
+      widthRef.current = newWidth;
       setPanelWidth(newWidth);
     };
     const onMouseUp = () => {
       dragging.current = false;
+      localStorage.setItem('topology-panel-width', widthRef.current.toString());
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
       document.body.style.cursor = '';
