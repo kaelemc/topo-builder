@@ -13,9 +13,7 @@ import {
   validateEsiLagEdges,
   createEsiLeaf,
   generateEsiLagName,
-  incrementInterface,
 } from '../utils';
-import { DEFAULT_INTERFACE } from '../constants';
 
 function getNextEsiLagNumber(edges: UIEdge[], commonNodeName: string): number {
   let count = 0;
@@ -32,7 +30,6 @@ export interface EsiLagState {}
 
 export interface EsiLagActions {
   createMultihomedLag: (edgeId1: string, edgeId2: string, additionalEdgeIds?: string[]) => void;
-  addLinkToEsiLag: (edgeId: string) => void;
   removeLinkFromEsiLag: (edgeId: string, leafIndex: number) => void;
   mergeEdgesIntoEsiLag: (esiLagId: string, edgeIds: string[]) => void;
 }
@@ -148,41 +145,6 @@ export const createEsiLagSlice: EsiLagSliceCreator = (set, get) => ({
       selectedEdgeIds: [newEdgeId],
       selectedMemberLinkIndices: [],
       selectedLagId: null,
-    });
-    get().triggerYamlRefresh();
-  },
-
-  addLinkToEsiLag: (edgeId: string) => {
-    const edges = get().edges;
-    const edge = edges.find(e => e.id === edgeId);
-    if (!edge || edge.data?.edgeType !== 'esilag' || !edge.data.esiLeaves) return;
-
-    const esiLeaves = edge.data.esiLeaves;
-    const memberLinks = edge.data.memberLinks || [];
-    if (esiLeaves.length >= 4) return;
-
-    const lastLeaf = esiLeaves[esiLeaves.length - 1];
-    const lastMemberLink = memberLinks[memberLinks.length - 1];
-
-    const newMemberLink: UIMemberLink = {
-      name: `${edge.data.sourceNode}-${lastLeaf.nodeName}-${memberLinks.length + 1}`,
-      sourceInterface: incrementInterface(lastMemberLink?.sourceInterface || DEFAULT_INTERFACE, esiLeaves.length + 1),
-      targetInterface: incrementInterface(lastMemberLink?.targetInterface || DEFAULT_INTERFACE, esiLeaves.length + 1),
-    };
-
-    set({
-      edges: edges.map(e =>
-        e.id === edgeId && e.data
-          ? {
-            ...e,
-            data: {
-              ...e.data,
-              memberLinks: [...memberLinks, newMemberLink],
-              esiLeaves: [...esiLeaves, { ...lastLeaf }],
-            },
-          }
-          : e,
-      ),
     });
     get().triggerYamlRefresh();
   },
