@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useMemo, useRef } from 'react';
 import { Handle, Position, useStore } from '@xyflow/react';
 
 import { useTopologyStore } from '../../lib/store';
@@ -112,9 +112,13 @@ export default function BaseNode({
 
   const isConnecting = useStore(state => state.connection.inProgress);
 
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+
   const connectedPositions = useMemo(() => {
-    return computeConnectedPositions(nodeId, edges, nodes);
-  }, [edges, nodes, nodeId]);
+    return computeConnectedPositions(nodeId, edges, nodesRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edges, nodeId]);
 
   const alwaysShowAll = selected || isConnecting;
 
