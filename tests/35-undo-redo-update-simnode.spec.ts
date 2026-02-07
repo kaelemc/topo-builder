@@ -58,16 +58,17 @@ test('Undo/redo update SimNode template', async ({ page }) => {
   await page.getByRole('tab', { name: 'YAML' }).click();
   const initialYaml = await getYamlContent(page);
 
-  // Change the template programmatically
+  // Change the template programmatically (must pick a different one than the default)
   const templateName = await page.evaluate(async () => {
     // @ts-expect-error - Vite serves source files at this path in dev mode
     const mod = await import('/src/lib/store/index.ts');
     const state = mod.useTopologyStore.getState();
     const templates = state.simulation.simNodeTemplates;
-    if (templates.length > 0) {
-      const template = templates[0].name;
-      state.updateSimNode('testman1', { template });
-      return template;
+    const currentTemplate = state.nodes.find((n: { data: { name: string } }) => n.data.name === 'testman1')?.data?.template;
+    const altTemplate = templates.find((t: { name: string }) => t.name !== currentTemplate);
+    if (altTemplate) {
+      state.updateSimNode('testman1', { template: altTemplate.name });
+      return altTemplate.name;
     }
     return null;
   });
