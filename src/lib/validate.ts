@@ -70,9 +70,10 @@ function validateUnknownProperties(value: unknown, schema: SchemaNode, path: str
     return errors;
   }
 
-  if (schema.type === 'array' && schema.items && Array.isArray(value)) {
+  const { items } = schema;
+  if (schema.type === 'array' && items && Array.isArray(value)) {
     value.forEach((item, i) => {
-      errors.push(...validateUnknownProperties(item, schema.items!, `${path}/${i}`));
+      errors.push(...validateUnknownProperties(item, items, `${path}/${i}`));
     });
     return errors;
   }

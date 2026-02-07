@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+
 import { EMPTY_POS, NODE1_POS, addContextMenuItem, nodeByLabel } from './lag-utils';
 import { expectYamlEquals } from './utils';
 

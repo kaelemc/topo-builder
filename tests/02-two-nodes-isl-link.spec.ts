@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+
 import { canvasPane, getNodeCount, getEdgeCount, expectYamlEquals } from './utils';
 import { addTwoNodesAndConnect } from './lag-utils';
 

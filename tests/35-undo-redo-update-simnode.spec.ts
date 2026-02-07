@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+
 import { canvasPane, getYamlContent } from './utils';
 import { SIM_POS, addContextMenuItem, nodeByLabel, undoViaContextMenu, redoViaContextMenu } from './lag-utils';
 

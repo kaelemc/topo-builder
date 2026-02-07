@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+
 import { expectYamlEquals } from './utils';
 import { addTwoNodesAndConnect, createLocalLagBetween } from './lag-utils';
 

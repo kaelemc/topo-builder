@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import yaml from 'js-yaml';
+
 import { NODE1_POS, addContextMenuItem } from './lag-utils';
 import { canvasPane, getYamlContent } from './utils';
 
@@ -14,7 +15,7 @@ test('Move node updates YAML coordinates', async ({ page }) => {
   const before = yaml.load(await getYamlContent(page)) as {
     spec?: { nodes?: Array<{ name: string; annotations?: Record<string, string> }> };
   };
-  const beforeNode = (before?.spec?.nodes ?? []).find((n) => n.name === 'leaf1');
+  const beforeNode = (before?.spec?.nodes ?? []).find(n => n.name === 'leaf1');
   expect(beforeNode).toBeTruthy();
 
   const xBefore = Number(beforeNode?.annotations?.['topobuilder.eda.labs/x']);
@@ -38,7 +39,7 @@ test('Move node updates YAML coordinates', async ({ page }) => {
   const after = yaml.load(await getYamlContent(page)) as {
     spec?: { nodes?: Array<{ name: string; annotations?: Record<string, string> }> };
   };
-  const afterNode = (after?.spec?.nodes ?? []).find((n) => n.name === 'leaf1');
+  const afterNode = (after?.spec?.nodes ?? []).find(n => n.name === 'leaf1');
   expect(afterNode).toBeTruthy();
 
   const xAfter = Number(afterNode?.annotations?.['topobuilder.eda.labs/x']);

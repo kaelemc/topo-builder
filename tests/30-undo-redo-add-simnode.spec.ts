@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+
 import { canvasPane, getNodeCount } from './utils';
 import { SIM_POS, addContextMenuItem, nodeByLabel, undoViaContextMenu, redoViaContextMenu } from './lag-utils';
 

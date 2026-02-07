@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+
 import { canvasPane, expectYamlEquals } from './utils';
 import { addTwoNodesAndConnect } from './lag-utils';
 

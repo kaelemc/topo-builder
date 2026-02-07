@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+
 import {
   NODE1_POS,
   NODE2_POS,

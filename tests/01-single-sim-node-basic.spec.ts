@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+
 import { canvasPane, getNodeCount, getYamlContent, loadExpectedYaml } from './utils';
 
 test('Add a single SimNode (testman)', async ({ page }) => {

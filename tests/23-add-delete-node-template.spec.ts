@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+
 import { canvasPane, expectYamlEquals } from './utils';
 
 test('Add and delete node templates', async ({ page }) => {

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import yaml from 'js-yaml';
-import { canvasPane } from './utils';
+
 import {
   topologyEdgeKey,
   topologyEdgeTestId,
@@ -9,6 +9,8 @@ import {
   topologyNodeTestId,
   topologySimNodeTestId,
 } from '../src/lib/testIds';
+
+import { canvasPane } from './utils';
 
 export const NODE1_POS = { x: 200, y: 300 };
 export const NODE2_POS = { x: 600, y: 300 };
@@ -51,12 +53,12 @@ export const lagByName = (page: Page, a: string, b: string, lagName: string) =>
   page.getByTestId(topologyLagTestId(a, b, lagName));
 
 export const selectEdgesByNames = async (page: Page, pairs: Array<[string, string]>) => {
-  await page.evaluate(async (edgePairs) => {
+  await page.evaluate(async edgePairs => {
     // @ts-expect-error - Vite serves source files at this path in dev mode
     const mod = await import('/src/lib/store/index.ts');
     const state = mod.useTopologyStore.getState();
     const edgeIds: string[] = [];
-    for (const [a, b] of edgePairs as Array<[string, string]>) {
+    for (const [a, b] of edgePairs) {
       const edge = state.edges.find((e: { data?: { sourceNode?: string; targetNode?: string } }) => {
         const src = e.data?.sourceNode;
         const dst = e.data?.targetNode;

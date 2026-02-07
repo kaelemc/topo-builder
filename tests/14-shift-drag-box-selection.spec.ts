@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+
 import { waitForAppReady } from './utils';
 import { addContextMenuItem, NODE1_POS, NODE2_POS } from './lag-utils';
 

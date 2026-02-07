@@ -1,7 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
 import { canvasPane, getYamlContent } from './utils';
 
-const openSettings = (page: import('@playwright/test').Page) =>
+const openSettings = (page: Page) =>
   page.locator('header').getByLabel('Settings').click();
 
 test('Settings dialog updates topology name and namespace in YAML', async ({ page }) => {

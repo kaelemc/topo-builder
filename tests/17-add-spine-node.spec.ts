@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+
 import { canvasPane, expectYamlEquals } from './utils';
 import { NODE1_POS, NODE2_POS, addContextMenuItem, nodeByLabel } from './lag-utils';
 

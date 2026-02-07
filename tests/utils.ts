@@ -1,7 +1,8 @@
-import { expect, type Page } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+
+import { expect, type Page } from '@playwright/test';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import yaml from 'js-yaml';
+
 import { addTwoNodesAndConnect } from './lag-utils';
 import { getEdgeCount, getNodeCount, getYamlContent, waitForAppReady } from './utils';
 

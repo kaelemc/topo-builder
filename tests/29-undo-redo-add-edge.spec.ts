@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+
 import { canvasPane, getNodeCount, getEdgeCount } from './utils';
 import { addTwoNodesAndConnect, undoViaContextMenu, redoViaContextMenu } from './lag-utils';
 
