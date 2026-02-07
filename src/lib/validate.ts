@@ -95,8 +95,8 @@ function validateUnknownProperties(value: unknown, schema: SchemaNode, path: str
         const message = dist <= MAX_SUGGEST_DISTANCE
           ? `Unknown field "${key}", did you mean "${match}"?`
           : `Unknown field "${key}" is not a valid property`;
-        errors.push({ path: path || '/', message });
-      }
+        const fieldPath = path ? `${path}/${key}` : `/${key}`;
+        errors.push({ path: fieldPath, message });
     }
   }
 
