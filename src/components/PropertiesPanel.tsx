@@ -36,6 +36,7 @@ import {
   NodeEditor,
   EdgeEditor,
   SimNodeEditor,
+  AnnotationEditor,
 } from './panels';
 
 export function SelectionPanel() {
@@ -52,11 +53,15 @@ export function SelectionPanel() {
   const linkTemplates = useTopologyStore(state => state.linkTemplates);
   const simulation = useTopologyStore(state => state.simulation);
 
+  const selectedAnnotationId = useTopologyStore(state => state.selectedAnnotationId);
+  const annotations = useTopologyStore(state => state.annotations);
+
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
   const selectedEdge = edges.find(e => e.id === selectedEdgeId);
   const selectedSimNode = nodes.find(
     n => n.selected && n.data.nodeType === 'simnode',
   );
+  const selectedAnnotation = annotations.find(a => a.id === selectedAnnotationId);
   const updateNode = useTopologyStore(state => state.updateNode);
   const updateSimNode = useTopologyStore(state => state.updateSimNode);
 
@@ -148,6 +153,10 @@ export function SelectionPanel() {
         targetInterfaceRef={targetInterfaceRef}
       />
     );
+  }
+
+  if (selectedAnnotation) {
+    return <AnnotationEditor annotation={selectedAnnotation} />;
   }
 
   if (selectedSimNode) {

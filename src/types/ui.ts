@@ -104,6 +104,7 @@ export interface UIClipboard {
   nodes: UINode[];
   edges: UIEdge[];
   simNodes: UISimNode[];
+  annotations?: UIAnnotation[];
   copiedLink?: {
     edgeId: string;
     template?: string;
@@ -119,6 +120,34 @@ export interface ValidationResult {
   valid: boolean;
   errors: ValidationError[];
 }
+
+export type AnnotationShapeType = 'rectangle' | 'circle';
+export type AnnotationStrokeStyle = 'solid' | 'dashed' | 'dotted';
+
+interface UIAnnotationBase {
+  id: string;
+  position: { x: number; y: number };
+}
+
+export interface UITextAnnotation extends UIAnnotationBase {
+  type: 'text';
+  text: string;
+  fontSize: number;
+  fontColor: string;
+}
+
+export interface UIShapeAnnotation extends UIAnnotationBase {
+  type: 'shape';
+  shapeType: AnnotationShapeType;
+  width: number;
+  height: number;
+  strokeColor: string;
+  strokeWidth: number;
+  strokeStyle: AnnotationStrokeStyle;
+}
+
+export type UIAnnotation = UITextAnnotation | UIShapeAnnotation;
+export type UIAnnotationInput = Omit<UITextAnnotation, 'id'> | Omit<UIShapeAnnotation, 'id'>;
 
 export interface UIState {
   topologyName: string;

@@ -31,7 +31,7 @@ import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH, ES
 import type { UINodeData, UIEdgeData, UILagGroup } from '../types/ui';
 import { useCopyPaste } from '../hooks/useCopyPaste';
 
-import { TopoNode, SimNode } from './nodes';
+import { TopoNode, SimNode, TextAnnotation, ShapeAnnotation } from './nodes';
 import { LinkEdge } from './edges';
 import AppLayout from './AppLayout';
 import YamlEditor, { jumpToNodeInEditor, jumpToLinkInEditor, jumpToSimNodeInEditor, jumpToMemberLinkInEditor } from './YamlEditor';
@@ -41,6 +41,8 @@ import ContextMenu from './ContextMenu';
 const nodeTypes: NodeTypes = {
   topoNode: TopoNode,
   simNode: SimNode,
+  textAnnotation: TextAnnotation,
+  shapeAnnotation: ShapeAnnotation,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -161,6 +163,11 @@ function selectAllInStore(): void {
   const simNodeNameList = [...simNodeNames];
   const selectedSimNodeName = simNodeNameList.length > 0 ? simNodeNameList[simNodeNameList.length - 1] : null;
 
+  const allAnnotationIds = new Set(currentState.annotations.map(a => a.id));
+  const lastAnnotationId = currentState.annotations.length > 0
+    ? currentState.annotations[currentState.annotations.length - 1].id
+    : null;
+
   useTopologyStore.setState({
     nodes: currentNodes.map(n => ({ ...n, selected: selectableNodeIds.has(n.id) })),
     edges: currentEdges.map(e => ({ ...e, selected: selectableEdgeIds.has(e.id) })),
@@ -170,6 +177,8 @@ function selectAllInStore(): void {
     selectedNodeId: allNodeIds.length > 0 ? allNodeIds[allNodeIds.length - 1] : null,
     selectedSimNodeNames: simNodeNames,
     selectedSimNodeName,
+    selectedAnnotationId: lastAnnotationId,
+    selectedAnnotationIds: allAnnotationIds,
   });
 }
 
@@ -188,6 +197,7 @@ type DeleteHotkeyHandlers = {
   deleteNode: (nodeId: string) => void;
   deleteEdge: (edgeId: string) => void;
   deleteSimNode: (simNodeName: string) => void;
+  deleteAnnotation: (id: string) => void;
   selectSimNodes: (names: Set<string>) => void;
   triggerYamlRefresh: () => void;
 };
@@ -223,6 +233,10 @@ function deleteSelectedItems(state: ReturnType<typeof useTopologyStore.getState>
   if (state.selectedSimNodeNames.size > 0) {
     state.selectedSimNodeNames.forEach(name => { handlers.deleteSimNode(name); });
     handlers.selectSimNodes(new Set());
+  }
+
+  if (state.selectedAnnotationIds.size > 0) {
+    state.selectedAnnotationIds.forEach(id => { handlers.deleteAnnotation(id); });
   }
 }
 
@@ -587,6 +601,14 @@ function TopologyEditorInner() {
     mergeEdgesIntoEsiLag,
     setError,
     syncSelectionFromReactFlow,
+    annotations,
+    selectedAnnotationId,
+    selectedAnnotationIds,
+    addAnnotation,
+    updateAnnotation,
+    deleteAnnotation,
+    selectAnnotation,
+    selectAnnotations,
   } = useTopologyStore();
 
   const { screenToFlowPosition } = useReactFlow();
@@ -629,10 +651,10 @@ function TopologyEditorInner() {
   }, [selectedEdgeId]);
 
   useEffect(() => {
-    if (selectedNodeId || selectedEdgeId || selectedSimNodeName) {
+    if (selectedNodeId || selectedEdgeId || selectedSimNodeName || selectedAnnotationId) {
       setActiveTab(1);
     }
-  }, [selectedNodeId, selectedEdgeId, selectedSimNodeName]);
+  }, [selectedNodeId, selectedEdgeId, selectedSimNodeName, selectedAnnotationId]);
 
   const [contextMenu, setContextMenu] = useState<{
     open: boolean;
@@ -673,10 +695,47 @@ function TopologyEditorInner() {
     jumpToMemberLinkInEditor(target.edgeId, target.memberIndex);
   }, [activeTab, selectedEdgeId, selectedMemberLinkIndices, edges, expandedEdges]);
 
+  const annotationNodes = useMemo(() => {
+    return annotations.map(ann => {
+      const base = {
+        id: ann.id,
+        position: ann.position,
+        selected: selectedAnnotationIds.has(ann.id),
+      };
+      if (ann.type === 'text') {
+        return {
+          ...base,
+          zIndex: 0,
+          type: 'textAnnotation' as const,
+          data: {
+            annotationId: ann.id,
+            text: ann.text,
+            fontSize: ann.fontSize,
+            fontColor: ann.fontColor,
+          },
+        };
+      }
+      return {
+        ...base,
+        zIndex: -1,
+        type: 'shapeAnnotation' as const,
+        data: {
+          annotationId: ann.id,
+          shapeType: ann.shapeType,
+          width: ann.width,
+          height: ann.height,
+          strokeColor: ann.strokeColor,
+          strokeWidth: ann.strokeWidth,
+          strokeStyle: ann.strokeStyle,
+        },
+      };
+    });
+  }, [annotations, selectedAnnotationIds]);
+
   const visibleNodes = useMemo(() => {
-    if (showSimNodes) return nodes;
-    return nodes.filter(n => n.data.nodeType !== 'simnode');
-  }, [nodes, showSimNodes]);
+    const topoNodes = showSimNodes ? nodes : nodes.filter(n => n.data.nodeType !== 'simnode');
+    return [...annotationNodes, ...topoNodes];
+  }, [nodes, showSimNodes, annotationNodes]);
 
   const visibleEdges = useMemo(() => {
     if (showSimNodes) return edges;
@@ -685,8 +744,36 @@ function TopologyEditorInner() {
   }, [edges, nodes, showSimNodes]);
 
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
-    onNodesChange(changes as NodeChange<Node<UINodeData>>[]);
-  }, [onNodesChange]);
+    const annotationChanges: NodeChange[] = [];
+    const regularChanges: NodeChange[] = [];
+
+    for (const change of changes) {
+      if ('id' in change && typeof change.id === 'string' && change.id.startsWith('a')) {
+        annotationChanges.push(change);
+      } else {
+        regularChanges.push(change);
+      }
+    }
+
+    if (regularChanges.length > 0) {
+      onNodesChange(regularChanges as NodeChange<Node<UINodeData>>[]);
+    }
+
+    for (const change of annotationChanges) {
+      if (change.type === 'position' && 'position' in change && change.position) {
+        const pos = change.position;
+        if (change.dragging) {
+          useTopologyStore.setState(state => ({
+            annotations: state.annotations.map(a =>
+              a.id === change.id ? { ...a, position: pos } : a,
+            ),
+          }));
+        } else {
+          updateAnnotation(change.id, { position: change.position });
+        }
+      }
+    }
+  }, [onNodesChange, updateAnnotation]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -703,6 +790,7 @@ function TopologyEditorInner() {
         deleteNode,
         deleteEdge,
         deleteSimNode,
+        deleteAnnotation,
         selectSimNodes,
         triggerYamlRefresh,
       });
@@ -710,7 +798,7 @@ function TopologyEditorInner() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => { window.removeEventListener('keydown', handleKeyDown); };
-  }, [handleUndo, handleRedo, deleteMemberLink, clearMemberLinkSelection, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh, selectSimNodes]);
+  }, [handleUndo, handleRedo, deleteMemberLink, clearMemberLinkSelection, deleteNode, deleteEdge, deleteSimNode, deleteAnnotation, triggerYamlRefresh, selectSimNodes]);
 
   const handlePaneClick = useCallback(() => {
     if (justConnectedRef.current) {
@@ -719,8 +807,9 @@ function TopologyEditorInner() {
     selectNode(null);
     selectEdge(null);
     selectSimNode(null);
+    selectAnnotation(null);
     setContextMenu(prev => ({ ...prev, open: false }));
-  }, [selectNode, selectEdge, selectSimNode]);
+  }, [selectNode, selectEdge, selectSimNode, selectAnnotation]);
 
   const handleMoveStart = useCallback(() => {
     setContextMenu(prev => ({ ...prev, open: false }));
@@ -733,10 +822,21 @@ function TopologyEditorInner() {
   const handleSelectionChange = useCallback(({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
     if (isPastingRef.current) return;
 
-    const nodeIds = selectedNodes.map(n => n.id);
+    const annotationIds = new Set<string>();
+    const regularNodeIds: string[] = [];
+
+    for (const n of selectedNodes) {
+      if (n.id.startsWith('a')) {
+        annotationIds.add(n.id);
+      } else {
+        regularNodeIds.push(n.id);
+      }
+    }
+
     const edgeIds = selectedEdges.map(e => e.id);
-    syncSelectionFromReactFlow(nodeIds, edgeIds);
-  }, [syncSelectionFromReactFlow]);
+    syncSelectionFromReactFlow(regularNodeIds, edgeIds);
+    selectAnnotations(annotationIds);
+  }, [syncSelectionFromReactFlow, selectAnnotations]);
 
   // Clear SimNode and sim-related edge selections when SimNodes are hidden
   useEffect(() => {
@@ -769,6 +869,15 @@ function TopologyEditorInner() {
   }, [showSimNodes, selectedSimNodeNames, selectedSimNodeName, selectedEdgeIds, selectSimNodes, selectSimNode, selectEdge]);
 
   const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    if (node.type === 'textAnnotation' || node.type === 'shapeAnnotation') {
+      selectAnnotation(node.id);
+      selectNode(null);
+      selectEdge(null);
+      selectSimNode(null);
+      setActiveTab(1);
+      return;
+    }
+    selectAnnotation(null);
     if (activeTab === 0) {
       const nodeData = node.data as UINodeData;
       if (node.type === 'simNode') {
@@ -777,7 +886,7 @@ function TopologyEditorInner() {
         jumpToNodeInEditor(nodeData.name);
       }
     }
-  }, [activeTab]);
+  }, [activeTab, selectAnnotation, selectNode, selectEdge, selectSimNode]);
 
   const handleEdgeClick = useCallback((_event: React.MouseEvent, edge: Edge<UIEdgeData>) => {
     if (activeTab === 0 && edge.data && (edge.data.memberLinks?.length || 0) === 1) {
@@ -806,9 +915,16 @@ function TopologyEditorInner() {
 
   const handleNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
     event.preventDefault();
-    if (node.type === 'simNode') {
+    if (node.type === 'textAnnotation' || node.type === 'shapeAnnotation') {
+      selectAnnotation(node.id);
+      selectNode(null);
+      selectEdge(null);
+      selectSimNode(null);
+    } else if (node.type === 'simNode') {
+      selectAnnotation(null);
       selectSimNode((node.data as UINodeData).name);
     } else {
+      selectAnnotation(null);
       selectNode(node.id);
     }
     setContextMenu({
@@ -816,7 +932,7 @@ function TopologyEditorInner() {
       position: { x: event.clientX, y: event.clientY },
       flowPosition: { x: 0, y: 0 },
     });
-  }, [selectNode, selectSimNode]);
+  }, [selectNode, selectSimNode, selectEdge, selectAnnotation]);
 
   const handleEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge<UIEdgeData>) => {
     event.preventDefault();
@@ -971,11 +1087,14 @@ function TopologyEditorInner() {
 
   const handleDeleteSimNode = () => { if (selectedSimNodeName) deleteSimNode(selectedSimNodeName); };
 
+  const handleDeleteAnnotation = () => { if (selectedAnnotationId) deleteAnnotation(selectedAnnotationId); };
+
   const hasSelection = (() => {
-    if (selectedNodeId) return 'node';
-    if (selectedEdgeIds.length > 1) return 'multiEdge';
-    if (selectedEdgeId) return 'edge';
-    if (selectedSimNodeName) return 'simNode';
+    if (selectedAnnotationId) return 'annotation' as const;
+    if (selectedNodeId) return 'node' as const;
+    if (selectedEdgeIds.length > 1) return 'multiEdge' as const;
+    if (selectedEdgeId) return 'edge' as const;
+    if (selectedSimNodeName) return 'simNode' as const;
     return null;
   })();
 
@@ -990,7 +1109,7 @@ function TopologyEditorInner() {
             position: 'relative',
             '& .react-flow__edges': { zIndex: '0 !important' },
             '& .react-flow__edge-labels': { zIndex: '0 !important' },
-            '& .react-flow__nodes': { zIndex: '1 !important' },
+            '& .react-flow__nodes': { zIndex: 'auto !important' },
           }}
         >
           <ReactFlow
@@ -1080,6 +1199,9 @@ function TopologyEditorInner() {
         selectedMemberLinkCount={selectedMemberLinkIndices.length}
         canCreateEsiLag={canCreateEsiLag}
         isMergeIntoEsiLag={isMergeIntoEsiLag}
+        onAddAnnotation={addAnnotation}
+        onDeleteAnnotation={handleDeleteAnnotation}
+        contextMenuFlowPosition={contextMenu.flowPosition}
       />
     </AppLayout>
   );

@@ -10,7 +10,7 @@ import { persist } from 'zustand/middleware';
 import type { Node, Edge } from '@xyflow/react';
 
 import baseTemplateYaml from '../../static/base-template.yaml?raw';
-import type { UINodeData, UIEdgeData, UISimNode, UIState } from '../../types/ui';
+import type { UINodeData, UIEdgeData, UISimNode, UIAnnotation, UIState } from '../../types/ui';
 import type { Operation } from '../../types/schema';
 import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
 import { yamlToUI, setIdCounters } from '../yaml-converter';
@@ -34,6 +34,9 @@ import {
   type TemplateSlice,
   createSelectionSlice,
   type SelectionSlice,
+  createAnnotationSlice,
+  setAnnotationIdCounter,
+  type AnnotationSlice,
 } from './slices';
 import {
   captureState,
@@ -51,7 +54,6 @@ import {
 let nodeIdCounter = 1;
 let edgeIdCounter = 1;
 let simNodeIdCounter = 1;
-
 const generateNodeId = () => `node-${nodeIdCounter++}`;
 const generateEdgeId = () => `edge-${edgeIdCounter++}`;
 const generateSimNodeId = () => `sim-${simNodeIdCounter++}`;
@@ -105,7 +107,8 @@ export type TopologyStore =
   & EsiLagSlice
   & SimNodeSlice
   & TemplateSlice
-  & SelectionSlice;
+  & SelectionSlice
+  & AnnotationSlice;
 
 // Parse base template from YAML file
 function parseBaseTemplate(): Partial<UIState> {
@@ -459,6 +462,7 @@ export const createTopologyStore = () => {
               linkTemplates: result.linkTemplates.length ? result.linkTemplates : (baseTemplate.linkTemplates || []),
               nodes: result.nodes,
               edges: result.edges,
+              annotations: result.annotations,
               simulation: {
                 ...result.simulation,
                 simNodeTemplates: result.simulation.simNodeTemplates?.length
@@ -475,11 +479,13 @@ export const createTopologyStore = () => {
             get().saveToUndoHistory();
             nodeIdCounter = 1;
             edgeIdCounter = 1;
+            setAnnotationIdCounter(1);
             const { darkMode, showSimNodes, yamlRefreshCounter } = get();
             set({
               ...initialCoreState,
               nodes: [],
               edges: [],
+              annotations: [],
               expandedEdges: new Set<string>(),
               nodeTemplates: baseTemplate.nodeTemplates || [],
               linkTemplates: baseTemplate.linkTemplates || [],
@@ -492,6 +498,8 @@ export const createTopologyStore = () => {
               selectedSimNodeNames: EMPTY_STRING_SET,
               selectedMemberLinkIndices: [],
               selectedLagId: null,
+              selectedAnnotationId: null,
+              selectedAnnotationIds: new Set<string>(),
               darkMode,
               showSimNodes,
               yamlRefreshCounter: yamlRefreshCounter + 1,
@@ -556,6 +564,7 @@ export const createTopologyStore = () => {
           ...createSimNodeSlice(set as any, get as any, api as any),
           ...createTemplateSlice(set as any, get as any, api as any),
           ...createSelectionSlice(set as any, get as any, api as any),
+          ...createAnnotationSlice(set as any, get as any, api as any),
           /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
 
           // Override initial state from base template
@@ -572,7 +581,7 @@ export const createTopologyStore = () => {
           selectedSimNodeNames: Array.from(state.selectedSimNodeNames),
         }),
         merge: (persistedState, currentState) => {
-          const persisted = persistedState as Partial<UIState> & { expandedEdges?: string[]; selectedSimNodeNames?: string[] };
+          const persisted = persistedState as Partial<UIState> & { expandedEdges?: string[]; selectedSimNodeNames?: string[]; annotations?: UIAnnotation[] };
           const nodes = persisted.nodes?.map(node => ({ ...node, data: { ...node.data, isNew: false } })) || currentState.nodes;
 
           // Migrate edges: infer edgeType from lagGroups/esiLeaves
@@ -597,6 +606,8 @@ export const createTopologyStore = () => {
             edges,
             expandedEdges,
             selectedSimNodeNames,
+            selectedAnnotationIds: new Set<string>(),
+            annotations: persisted.annotations || (currentState as TopologyStore).annotations || [],
             nodeTemplates: persisted.nodeTemplates?.length ? persisted.nodeTemplates : (baseTemplate.nodeTemplates || []),
             linkTemplates: persisted.linkTemplates?.length ? persisted.linkTemplates : (baseTemplate.linkTemplates || []),
             simulation: {
@@ -622,9 +633,17 @@ export const createTopologyStore = () => {
               const num = parseInt(edge.id.split('-')[1] || '0', 10);
               return Math.max(max, num);
             }, 0);
+            let maxAnnotationId = 0;
+            if (state.annotations) {
+              for (const ann of state.annotations) {
+                const num = parseInt(ann.id.replace(/\D/g, '') || '0', 10);
+                maxAnnotationId = Math.max(maxAnnotationId, num);
+              }
+            }
             nodeIdCounter = maxNodeId + 1;
             edgeIdCounter = maxEdgeId + 1;
             simNodeIdCounter = maxSimNodeId + 1;
+            setAnnotationIdCounter(maxAnnotationId + 1);
             setIdCounters(nodeIdCounter, edgeIdCounter, simNodeIdCounter);
           }
         },
@@ -656,6 +675,7 @@ export const undo = () => {
     linkTemplates: previousState.linkTemplates,
     topologyName: previousState.topologyName,
     namespace: previousState.namespace,
+    annotations: previousState.annotations,
     selectedNodeId: null,
     selectedNodeIds: [],
     selectedEdgeId: null,
@@ -663,6 +683,8 @@ export const undo = () => {
     selectedSimNodeName: null,
     selectedMemberLinkIndices: [],
     selectedLagId: null,
+    selectedAnnotationId: null,
+    selectedAnnotationIds: new Set<string>(),
   });
 };
 
@@ -680,6 +702,7 @@ export const redo = () => {
     linkTemplates: nextState.linkTemplates,
     topologyName: nextState.topologyName,
     namespace: nextState.namespace,
+    annotations: nextState.annotations,
     selectedNodeId: null,
     selectedNodeIds: [],
     selectedEdgeId: null,
@@ -687,6 +710,8 @@ export const redo = () => {
     selectedSimNodeName: null,
     selectedMemberLinkIndices: [],
     selectedLagId: null,
+    selectedAnnotationId: null,
+    selectedAnnotationIds: new Set<string>(),
   });
 };
 

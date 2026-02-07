@@ -20,8 +20,9 @@ import type {
   UIEsiLeaf,
   UISimNode,
   UISimulation,
+  UIAnnotation,
 } from '../../types/ui';
-import { DEFAULT_INTERFACE } from '../constants';
+import { DEFAULT_INTERFACE, ANNOTATION_DRAWING } from '../constants';
 
 import {
   asArray,
@@ -53,6 +54,7 @@ export interface YamlToUIResult {
   nodes: UINode[];
   edges: UIEdge[];
   simulation: UISimulation;
+  annotations: UIAnnotation[];
 }
 
 function buildEmptyYamlToUIResult(): YamlToUIResult {
@@ -65,6 +67,7 @@ function buildEmptyYamlToUIResult(): YamlToUIResult {
     nodes: [],
     edges: [],
     simulation: { simNodeTemplates: [], simNodes: [] },
+    annotations: [],
   };
 }
 
@@ -330,6 +333,17 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
 
     const edges = yamlLinksToUIEdges(asArray<Link>(parsed.spec?.links), nameToId, existingEdges);
 
+    let annotations: UIAnnotation[] = [];
+    const metadataAnnotations = (parsed.metadata as Record<string, unknown> | undefined)?.annotations as Record<string, unknown> | undefined;
+    const drawingData = metadataAnnotations?.[ANNOTATION_DRAWING];
+    if (Array.isArray(drawingData)) {
+      annotations = drawingData as UIAnnotation[];
+    } else if (typeof drawingData === 'string') {
+      try {
+        annotations = JSON.parse(drawingData) as UIAnnotation[];
+      } catch { /* empty */ }
+    }
+
     return {
       topologyName,
       namespace,
@@ -343,6 +357,7 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
         simNodes: [], // SimNodes are now in nodes[]
         topology,
       },
+      annotations,
     };
   } catch (e) {
     console.error('Failed to parse YAML:', e);

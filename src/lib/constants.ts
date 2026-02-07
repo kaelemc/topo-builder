@@ -12,6 +12,12 @@ export const ANNOTATION_SRC_HANDLE = 'topobuilder.eda.labs/srcHandle';
 export const ANNOTATION_DST_HANDLE = 'topobuilder.eda.labs/dstHandle';
 export const ANNOTATION_NAME_PREFIX = 'topobuilder.eda.labs/name-prefix';
 
+export const ANNOTATION_DRAWING = 'topobuilder.eda.labs/drawing';
+
+export const DEFAULT_ANNOTATION_COLOR = '#7d33f2';
+export const DEFAULT_ANNOTATION_WIDTH = 200;
+export const DEFAULT_ANNOTATION_HEIGHT = 100;
+
 export const DEFAULT_INTERFACE = 'ethernet-1-1';
 export const DEFAULT_SIM_INTERFACE = 'eth1';
 

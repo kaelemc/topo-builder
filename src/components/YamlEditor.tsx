@@ -230,7 +230,7 @@ export function jumpToMemberLinkInEditor(edgeId: string, memberIndex: number): v
 export default function YamlEditor() {
   const {
     topologyName, namespace, operation, nodes, edges,
-    nodeTemplates, linkTemplates, simulation,
+    nodeTemplates, linkTemplates, simulation, annotations,
     importFromYaml, yamlRefreshCounter, darkMode,
   } = useTopologyStore();
 
@@ -239,7 +239,7 @@ export default function YamlEditor() {
   const isRefreshingRef = useRef(false);
 
   const getYamlFromState = () => exportToYaml({
-    topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation,
+    topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations,
   });
 
   useEffect(() => {

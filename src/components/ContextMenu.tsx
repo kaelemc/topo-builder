@@ -21,10 +21,14 @@ import {
   ContentPaste as PasteIcon,
   Undo as UndoIcon,
   Redo as RedoIcon,
+  TextFields as TextFieldsIcon,
+  Category as ShapeIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState, type ReactNode } from 'react';
 
 import type { NodeTemplate, SimNodeTemplate, LinkTemplate } from '../types/schema';
+import type { UIAnnotationInput, AnnotationShapeType } from '../types/ui';
+import { DEFAULT_ANNOTATION_COLOR, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT } from '../lib/constants';
 
 const SUBMENU_CHEVRON_SX = { ml: 1, color: 'text.secondary' } as const;
 
@@ -73,14 +77,73 @@ function TemplateSubmenu({
   );
 }
 
+function ShapeSubmenu({
+  onAddAnnotation,
+  flowPosition,
+  onClose,
+}: {
+  onAddAnnotation: (annotation: UIAnnotationInput) => void;
+  flowPosition: { x: number; y: number };
+  onClose: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const shapes: { label: string; shapeType: AnnotationShapeType }[] = [
+    { label: 'Rectangle', shapeType: 'rectangle' },
+    { label: 'Circle', shapeType: 'circle' },
+  ];
+
+  const handleAdd = (shapeType: AnnotationShapeType) => {
+    onAddAnnotation({
+      type: 'shape',
+      shapeType,
+      position: flowPosition,
+      width: DEFAULT_ANNOTATION_WIDTH,
+      height: DEFAULT_ANNOTATION_HEIGHT,
+      strokeColor: DEFAULT_ANNOTATION_COLOR,
+      strokeWidth: 2,
+      strokeStyle: 'solid',
+    });
+    onClose();
+  };
+
+  return (
+    <Box
+      onMouseEnter={() => { setOpen(true); }}
+      onMouseLeave={() => { setOpen(false); }}
+      sx={{ position: 'relative' }}
+    >
+      <MenuItem>
+        <ListItemIcon><ShapeIcon fontSize="small" /></ListItemIcon>
+        <ListItemText>Add Shape</ListItemText>
+        <ChevronRightIcon fontSize="small" sx={SUBMENU_CHEVRON_SX} />
+      </MenuItem>
+
+      {open && (
+        <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, py: 0.5, minWidth: 160 }}>
+          {shapes.map(s => (
+            <MenuItem key={s.shapeType} onClick={() => { handleAdd(s.shapeType); }}>
+              <ListItemText>{s.label}</ListItemText>
+            </MenuItem>
+          ))}
+        </Paper>
+      )}
+    </Box>
+  );
+}
+
 function ContextMenuNoSelectionItems({
   onClose,
   onAddNode,
   onAddSimNode,
+  onAddAnnotation,
+  flowPosition,
 }: {
   onClose: () => void;
   onAddNode: (templateName?: string) => void;
   onAddSimNode?: () => void;
+  onAddAnnotation?: (annotation: UIAnnotationInput) => void;
+  flowPosition: { x: number; y: number };
 }) {
   return (
     <>
@@ -94,6 +157,30 @@ function ContextMenuNoSelectionItems({
           <ListItemIcon><SimNodeIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Add SimNode</ListItemText>
         </MenuItem>
+      )}
+
+      {onAddAnnotation && (
+        <>
+          <Divider />
+          <MenuItem onClick={() => {
+            onAddAnnotation({
+              type: 'text',
+              text: 'Label',
+              fontSize: 14,
+              fontColor: DEFAULT_ANNOTATION_COLOR,
+              position: flowPosition,
+            });
+            onClose();
+          }}>
+            <ListItemIcon><TextFieldsIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Add Text</ListItemText>
+          </MenuItem>
+          <ShapeSubmenu
+            onAddAnnotation={onAddAnnotation}
+            flowPosition={flowPosition}
+            onClose={onClose}
+          />
+        </>
       )}
     </>
   );
@@ -258,11 +345,13 @@ function ContextMenuSelectionSection({
   onDeleteNode,
   onDeleteSimNode,
   onDeleteEdge,
+  onDeleteAnnotation,
   onChangeNodeTemplate,
   onChangeSimNodeTemplate,
   onChangeLinkTemplate,
   onCreateLag,
   onCreateEsiLag,
+  onAddAnnotation,
   nodeTemplates,
   currentNodeTemplate,
   simNodeTemplates,
@@ -272,19 +361,22 @@ function ContextMenuSelectionSection({
   selectedMemberLinkCount,
   canCreateEsiLag,
   isMergeIntoEsiLag,
+  contextMenuFlowPosition,
 }: {
-  hasSelection: 'node' | 'edge' | 'simNode' | 'multiEdge' | null;
+  hasSelection: 'node' | 'edge' | 'simNode' | 'multiEdge' | 'annotation' | null;
   onClose: () => void;
   onAddNode: (templateName?: string) => void;
   onAddSimNode?: () => void;
   onDeleteNode?: () => void;
   onDeleteSimNode?: () => void;
   onDeleteEdge?: () => void;
+  onDeleteAnnotation?: () => void;
   onChangeNodeTemplate?: (templateName: string) => void;
   onChangeSimNodeTemplate?: (templateName: string) => void;
   onChangeLinkTemplate?: (templateName: string) => void;
   onCreateLag?: () => void;
   onCreateEsiLag?: () => void;
+  onAddAnnotation?: (annotation: UIAnnotationInput) => void;
   nodeTemplates: NodeTemplate[];
   currentNodeTemplate?: string;
   simNodeTemplates: SimNodeTemplate[];
@@ -294,6 +386,7 @@ function ContextMenuSelectionSection({
   selectedMemberLinkCount: number;
   canCreateEsiLag: boolean;
   isMergeIntoEsiLag: boolean;
+  contextMenuFlowPosition: { x: number; y: number };
 }) {
   switch (hasSelection) {
     case null:
@@ -302,7 +395,20 @@ function ContextMenuSelectionSection({
           onClose={onClose}
           onAddNode={onAddNode}
           onAddSimNode={onAddSimNode}
+          onAddAnnotation={onAddAnnotation}
+          flowPosition={contextMenuFlowPosition}
         />
+      );
+    case 'annotation':
+      return (
+        <>
+          {onDeleteAnnotation && (
+            <MenuItem onClick={() => { onDeleteAnnotation(); onClose(); }}>
+              <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+              <ListItemText>Delete Annotation</ListItemText>
+            </MenuItem>
+          )}
+        </>
       );
     case 'node':
       return (
@@ -450,11 +556,13 @@ interface ContextMenuProps {
   onDeleteNode?: () => void;
   onDeleteEdge?: () => void;
   onDeleteSimNode?: () => void;
+  onDeleteAnnotation?: () => void;
   onChangeNodeTemplate?: (templateName: string) => void;
   onChangeSimNodeTemplate?: (templateName: string) => void;
   onChangeLinkTemplate?: (templateName: string) => void;
   onCreateLag?: () => void;
   onCreateEsiLag?: () => void;
+  onAddAnnotation?: (annotation: UIAnnotationInput) => void;
   onCopy?: () => void;
   onPaste?: () => void;
   onUndo?: () => void;
@@ -462,7 +570,7 @@ interface ContextMenuProps {
   canUndo?: boolean;
   canRedo?: boolean;
   onClearAll: () => void;
-  hasSelection: 'node' | 'edge' | 'simNode' | 'multiEdge' | null;
+  hasSelection: 'node' | 'edge' | 'simNode' | 'multiEdge' | 'annotation' | null;
   hasContent: boolean;
   canCopy?: boolean;
   canPaste?: boolean;
@@ -475,6 +583,7 @@ interface ContextMenuProps {
   selectedMemberLinkCount?: number;
   canCreateEsiLag?: boolean;
   isMergeIntoEsiLag?: boolean;
+  contextMenuFlowPosition?: { x: number; y: number };
 }
 
 export default function ContextMenu({
@@ -486,11 +595,13 @@ export default function ContextMenu({
   onDeleteNode,
   onDeleteEdge,
   onDeleteSimNode,
+  onDeleteAnnotation,
   onChangeNodeTemplate,
   onChangeSimNodeTemplate,
   onChangeLinkTemplate,
   onCreateLag,
   onCreateEsiLag,
+  onAddAnnotation,
   onCopy,
   onPaste,
   onUndo,
@@ -511,6 +622,7 @@ export default function ContextMenu({
   selectedMemberLinkCount = 0,
   canCreateEsiLag = false,
   isMergeIntoEsiLag = false,
+  contextMenuFlowPosition = { x: 0, y: 0 },
 }: ContextMenuProps) {
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const paperRef = useRef<HTMLDivElement | null>(null);
@@ -571,11 +683,13 @@ export default function ContextMenu({
                 onDeleteNode={onDeleteNode}
                 onDeleteSimNode={onDeleteSimNode}
                 onDeleteEdge={onDeleteEdge}
+                onDeleteAnnotation={onDeleteAnnotation}
                 onChangeNodeTemplate={onChangeNodeTemplate}
                 onChangeSimNodeTemplate={onChangeSimNodeTemplate}
                 onChangeLinkTemplate={onChangeLinkTemplate}
                 onCreateLag={onCreateLag}
                 onCreateEsiLag={onCreateEsiLag}
+                onAddAnnotation={onAddAnnotation}
                 nodeTemplates={nodeTemplates}
                 currentNodeTemplate={currentNodeTemplate}
                 simNodeTemplates={simNodeTemplates}
@@ -585,6 +699,7 @@ export default function ContextMenu({
                 selectedMemberLinkCount={selectedMemberLinkCount}
                 canCreateEsiLag={canCreateEsiLag}
                 isMergeIntoEsiLag={isMergeIntoEsiLag}
+                contextMenuFlowPosition={contextMenuFlowPosition}
               />
 
               <ContextMenuClipboardSection

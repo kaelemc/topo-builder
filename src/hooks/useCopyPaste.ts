@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, type RefObject } from 'react';
 import { useReactFlow, type Node, type Edge } from '@xyflow/react';
 
 import { useTopologyStore } from '../lib/store';
-import type { UINodeData, UIEdgeData, UIClipboard } from '../types/ui';
+import type { UINodeData, UIEdgeData, UIClipboard, UIAnnotation } from '../types/ui';
 
 // Use UIClipboard but with React Flow node types for the nodes/edges arrays
 type ClipboardData = Omit<UIClipboard, 'nodes' | 'edges'> & {
   nodes: Node<UINodeData>[];
   edges: Edge<UIEdgeData>[];
+  annotations?: UIAnnotation[];
 };
 
 // Module-level clipboard for context menu fallback
@@ -53,10 +54,13 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
   const buildClipboardData = useCallback((): ClipboardData | null => {
     const allNodes = getNodes() as Node<UINodeData>[];
     const allEdges = getEdges() as Edge<UIEdgeData>[];
-    const selectedNodes = allNodes.filter(n => n.selected);
+    const selectedNodes = allNodes.filter(n => n.selected && !n.id.startsWith('a'));
     const selectedEdges = allEdges.filter(e => e.selected);
     const selectedRegularNodes = selectedNodes.filter(n => n.data.nodeType !== 'simnode');
     const selectedSimNodes = selectedNodes.filter(n => n.data.nodeType === 'simnode');
+
+    const { annotations, selectedAnnotationIds } = useTopologyStore.getState();
+    const selectedAnnotations = annotations.filter(a => selectedAnnotationIds.has(a.id));
 
     // Special case: copying a single link copies its template for pasting into other links
     if (selectedEdges.length === 1 && selectedNodes.length === 0) {
@@ -77,7 +81,7 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
       }
     }
 
-    if (selectedNodes.length > 0 || selectedEdges.length > 0) {
+    if (selectedNodes.length > 0 || selectedEdges.length > 0 || selectedAnnotations.length > 0) {
       return {
         nodes: selectedRegularNodes.map(n => ({
           ...n,
@@ -108,6 +112,7 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
           labels: n.data.labels,
           position: n.position ? { x: n.position.x, y: n.position.y } : undefined,
         })),
+        annotations: selectedAnnotations.map(a => ({ ...a, position: { ...a.position } })),
       };
     }
 
@@ -162,7 +167,7 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
   }, [addMemberLink, triggerYamlRefresh]);
 
   const performPaste = useCallback((clipboardData: ClipboardData, cursorPos: { x: number; y: number }) => {
-    const { nodes: copiedNodes, edges: copiedEdges, simNodes: copiedSimNodes, copiedLink } = clipboardData;
+    const { nodes: copiedNodes, edges: copiedEdges, simNodes: copiedSimNodes, annotations: copiedAnnotations, copiedLink } = clipboardData;
 
     // Handle pasting a copied link template
     if (copiedLink) {
@@ -170,17 +175,18 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
       return;
     }
 
-    if (!copiedNodes?.length && !copiedSimNodes?.length) return;
+    const hasAnnotations = copiedAnnotations && copiedAnnotations.length > 0;
+    if (!copiedNodes?.length && !copiedSimNodes?.length && !hasAnnotations) return;
 
     // Set pasting flag to prevent selection sync during paste
     if (isPastingRef) isPastingRef.current = true;
 
     saveToUndoHistory();
 
-    // Calculate center of copied elements
     const allPositions = [
       ...copiedNodes.map(n => n.position),
       ...copiedSimNodes.map(sn => sn.position).filter((p): p is { x: number; y: number } => !!p),
+      ...(copiedAnnotations || []).map(a => a.position),
     ];
     const centerX = allPositions.length > 0
       ? allPositions.reduce((sum, p) => sum + p.x, 0) / allPositions.length
@@ -195,6 +201,19 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
     };
 
     pasteSelection(copiedNodes, copiedEdges, offset, copiedSimNodes, cursorPos);
+
+    if (hasAnnotations) {
+      const { addAnnotation } = useTopologyStore.getState();
+      for (const ann of copiedAnnotations) {
+        const { type, position } = ann;
+        const offsetPos = { x: position.x + offset.x, y: position.y + offset.y };
+        if (type === 'text') {
+          addAnnotation({ type, position: offsetPos, text: ann.text, fontSize: ann.fontSize, fontColor: ann.fontColor });
+        } else {
+          addAnnotation({ type, position: offsetPos, shapeType: ann.shapeType, width: ann.width, height: ann.height, strokeColor: ann.strokeColor, strokeWidth: ann.strokeWidth, strokeStyle: ann.strokeStyle });
+        }
+      }
+    }
 
     // Clear pasting flag after a tick to allow React state to settle
     if (isPastingRef) {

@@ -17,6 +17,7 @@ import type {
   UILagGroup,
   UIEsiLeaf,
   UISimulation,
+  UIAnnotation,
 } from '../../types/ui';
 import {
   ANNOTATION_POS_X,
@@ -25,6 +26,7 @@ import {
   ANNOTATION_MEMBER_INDEX,
   ANNOTATION_SRC_HANDLE,
   ANNOTATION_DST_HANDLE,
+  ANNOTATION_DRAWING,
   DEFAULT_INTERFACE,
   DEFAULT_SIM_INTERFACE,
 } from '../constants';
@@ -42,14 +44,17 @@ export interface UIToYamlOptions {
   nodeTemplates: NodeTemplate[];
   linkTemplates: LinkTemplate[];
   simulation?: UISimulation;
+  annotations?: UIAnnotation[];
 }
+
+const ANNOTATION_JSON_PLACEHOLDER = 'ANNOTATION_JSON_PLACEHOLDER';
 
 /**
  * Convert UI state to YAML string.
  */
 export function exportToYaml(options: UIToYamlOptions): string {
   const crd = buildCrd(options);
-  return yaml.dump(crd, {
+  let yamlStr = yaml.dump(crd, {
     indent: 2,
     lineWidth: -1,
     noRefs: true,
@@ -57,6 +62,14 @@ export function exportToYaml(options: UIToYamlOptions): string {
     quotingType: '"',
     forceQuotes: false,
   });
+
+  if (options.annotations && options.annotations.length > 0) {
+    const jsonStr = JSON.stringify(options.annotations);
+    const yamlSafeJson = jsonStr.replace(/'/g, "''");
+    yamlStr = yamlStr.replace(ANNOTATION_JSON_PLACEHOLDER, `'${yamlSafeJson}'`);
+  }
+
+  return yamlStr;
 }
 
 // if nodes are negative, calculate an offset to make the node positive
@@ -131,14 +144,21 @@ export function buildCrd(options: UIToYamlOptions): Topology {
   // Convert edges to links
   const yamlLinks = uiEdgesToYamlLinks(edges, nodeIdToName, simNodeIdToName);
 
+  const metadataObj: Record<string, unknown> = {
+    name: topologyName,
+    namespace,
+  };
+  if (options.annotations && options.annotations.length > 0) {
+    metadataObj.annotations = {
+      [ANNOTATION_DRAWING]: ANNOTATION_JSON_PLACEHOLDER,
+    };
+  }
+
   // Build CRD
   const crd: Topology = {
     apiVersion: 'topologies.eda.nokia.com/v1alpha1',
     kind: 'NetworkTopology',
-    metadata: {
-      name: topologyName,
-      namespace,
-    },
+    metadata: metadataObj as unknown as Topology['metadata'],
     spec: {
       operation,
       nodeTemplates,

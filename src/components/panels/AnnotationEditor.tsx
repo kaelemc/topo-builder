@@ -1,0 +1,146 @@
+import { useState, useEffect } from 'react';
+import {
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Box,
+  IconButton,
+} from '@mui/material';
+import { Delete as DeleteIcon } from '@mui/icons-material';
+
+import { useTopologyStore } from '../../lib/store';
+import type { UIAnnotation, UITextAnnotation, UIShapeAnnotation, AnnotationShapeType, AnnotationStrokeStyle } from '../../types/ui';
+
+import { ColorField, PanelHeader } from './shared';
+
+function TextAnnotationFields({ annotation }: { annotation: UITextAnnotation }) {
+  const updateAnnotation = useTopologyStore(s => s.updateAnnotation);
+  const [localText, setLocalText] = useState(annotation.text);
+
+  useEffect(() => { setLocalText(annotation.text); }, [annotation.text, annotation.id]);
+
+  return (
+    <>
+      <TextField
+        label="Text"
+        value={localText}
+        onChange={e => { setLocalText(e.target.value); }}
+        onBlur={() => {
+          if (localText !== annotation.text) {
+            updateAnnotation(annotation.id, { text: localText });
+          }
+        }}
+        multiline
+        minRows={2}
+        size="small"
+        fullWidth
+      />
+
+      <TextField
+        label="Font Size"
+        type="number"
+        value={annotation.fontSize}
+        onChange={e => { updateAnnotation(annotation.id, { fontSize: Math.max(8, parseInt(e.target.value) || 14) }); }}
+        size="small"
+        fullWidth
+      />
+
+      <ColorField
+        label="Font Color"
+        value={annotation.fontColor}
+        onChange={color => { updateAnnotation(annotation.id, { fontColor: color }); }}
+      />
+    </>
+  );
+}
+
+function ShapeAnnotationFields({ annotation }: { annotation: UIShapeAnnotation }) {
+  const updateAnnotation = useTopologyStore(s => s.updateAnnotation);
+
+  return (
+    <>
+      <FormControl size="small" fullWidth>
+        <InputLabel>Shape</InputLabel>
+        <Select
+          value={annotation.shapeType}
+          label="Shape"
+          onChange={e => { updateAnnotation(annotation.id, { shapeType: e.target.value as AnnotationShapeType }); }}
+        >
+          <MenuItem value="rectangle">Rectangle</MenuItem>
+          <MenuItem value="circle">Circle</MenuItem>
+        </Select>
+      </FormControl>
+
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <TextField
+          label="Width"
+          type="number"
+          value={annotation.width}
+          onChange={e => { updateAnnotation(annotation.id, { width: Math.max(60, parseInt(e.target.value) || 60) }); }}
+          size="small"
+          sx={{ flex: 1 }}
+        />
+        <TextField
+          label="Height"
+          type="number"
+          value={annotation.height}
+          onChange={e => { updateAnnotation(annotation.id, { height: Math.max(40, parseInt(e.target.value) || 40) }); }}
+          size="small"
+          sx={{ flex: 1 }}
+        />
+      </Box>
+
+      <ColorField
+        label="Stroke Color"
+        value={annotation.strokeColor}
+        onChange={color => { updateAnnotation(annotation.id, { strokeColor: color }); }}
+      />
+
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <TextField
+          label="Stroke Width"
+          type="number"
+          value={annotation.strokeWidth}
+          onChange={e => { updateAnnotation(annotation.id, { strokeWidth: Math.max(1, parseInt(e.target.value) || 1) }); }}
+          size="small"
+          sx={{ flex: 1 }}
+          slotProps={{ htmlInput: { min: 0, max: 20 } }}
+        />
+        <FormControl size="small" sx={{ flex: 1 }}>
+          <InputLabel>Stroke Style</InputLabel>
+          <Select
+            value={annotation.strokeStyle}
+            label="Stroke Style"
+            onChange={e => { updateAnnotation(annotation.id, { strokeStyle: e.target.value as AnnotationStrokeStyle }); }}
+          >
+            <MenuItem value="solid">Solid</MenuItem>
+            <MenuItem value="dashed">Dashed</MenuItem>
+            <MenuItem value="dotted">Dotted</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+    </>
+  );
+}
+
+export function AnnotationEditor({ annotation }: { annotation: UIAnnotation }) {
+  const deleteAnnotation = useTopologyStore(s => s.deleteAnnotation);
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <PanelHeader
+        title={annotation.type === 'text' ? 'Text Annotation' : 'Shape Annotation'}
+        actions={
+          <IconButton size="small" color="error" onClick={() => { deleteAnnotation(annotation.id); }}>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        }
+      />
+
+      {annotation.type === 'text' && <TextAnnotationFields annotation={annotation} />}
+      {annotation.type === 'shape' && <ShapeAnnotationFields annotation={annotation} />}
+    </Box>
+  );
+}

@@ -92,6 +92,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const linkTemplates = useTopologyStore(state => state.linkTemplates);
   const simulation = useTopologyStore(state => state.simulation);
+  const annotations = useTopologyStore(state => state.annotations);
   const setTopologyName = useTopologyStore(state => state.setTopologyName);
   const setNamespace = useTopologyStore(state => state.setNamespace);
   const setOperation = useTopologyStore(state => state.setOperation);
@@ -116,7 +117,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const getExportYaml = () => exportToYaml({
     topologyName: `${topologyName}-${Date.now()}`,
-    namespace, operation, nodes: normalizeNodeCoordinates(nodes), edges, nodeTemplates, linkTemplates, simulation,
+    namespace, operation, nodes: normalizeNodeCoordinates(nodes), edges, nodeTemplates, linkTemplates, simulation, annotations,
   });
 
   const handleDownload = () => {
@@ -137,7 +138,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const handleValidate = () => {
-    const yaml = exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation });
+    const yaml = exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations });
     setValidationResult(validateNetworkTopology(yaml));
     setValidationDialogOpen(true);
   };

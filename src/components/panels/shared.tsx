@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import {
   Box,
   Typography,
@@ -9,8 +9,10 @@ import {
   Autocomplete,
   Chip,
   Divider,
+  InputAdornment,
+  Tooltip,
 } from '@mui/material';
-import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon, Add as AddIcon, ContentCopy as CopyIcon } from '@mui/icons-material';
 
 import { CARD_BG, CARD_BORDER } from '../../lib/constants';
 
@@ -258,5 +260,61 @@ export function LabelEditor({
         )}
       </Box>
     </Box>
+  );
+}
+
+export function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (color: string) => void }) {
+  const colorRef = useRef<HTMLInputElement>(null);
+
+  const handleCopy = () => { void navigator.clipboard.writeText(value); };
+
+  return (
+    <TextField
+      label={label}
+      value={value}
+      onChange={e => {
+        const v = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;
+        if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v);
+      }}
+      size="small"
+      fullWidth
+      slotProps={{
+        input: {
+          startAdornment: (
+            <InputAdornment position="start">
+              <Box
+                onClick={() => { colorRef.current?.click(); }}
+                sx={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 0.5,
+                  backgroundColor: value,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              />
+              <input
+                ref={colorRef}
+                type="color"
+                value={value}
+                onChange={e => { onChange(e.target.value); }}
+                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+              />
+            </InputAdornment>
+          ),
+          endAdornment: (
+            <InputAdornment position="end">
+              <Tooltip title="Copy hex">
+                <IconButton size="small" onClick={handleCopy}>
+                  <CopyIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            </InputAdornment>
+          ),
+        },
+      }}
+    />
   );
 }

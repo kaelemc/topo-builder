@@ -6,7 +6,7 @@
 
 import type { Node, Edge } from '@xyflow/react';
 
-import type { UINodeData, UIEdgeData, UISimulation } from '../../types/ui';
+import type { UINodeData, UIEdgeData, UISimulation, UIAnnotation } from '../../types/ui';
 import type { NodeTemplate, LinkTemplate } from '../../types/schema';
 import { UNDO_LIMIT } from '../constants';
 
@@ -18,6 +18,7 @@ export interface UndoState {
   linkTemplates: LinkTemplate[];
   topologyName: string;
   namespace: string;
+  annotations: UIAnnotation[];
 }
 
 const undoHistory: UndoState[] = [];
@@ -31,6 +32,7 @@ export const captureState = (state: {
   linkTemplates: LinkTemplate[];
   topologyName: string;
   namespace: string;
+  annotations: UIAnnotation[];
 }): UndoState => ({
   nodes: JSON.parse(JSON.stringify(state.nodes)) as Node<UINodeData>[],
   edges: JSON.parse(JSON.stringify(state.edges)) as Edge<UIEdgeData>[],
@@ -39,6 +41,7 @@ export const captureState = (state: {
   linkTemplates: JSON.parse(JSON.stringify(state.linkTemplates)) as LinkTemplate[],
   topologyName: state.topologyName,
   namespace: state.namespace,
+  annotations: JSON.parse(JSON.stringify(state.annotations)) as UIAnnotation[],
 });
 
 /**
