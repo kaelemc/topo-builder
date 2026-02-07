@@ -142,6 +142,7 @@ export interface UIShapeAnnotation extends UIAnnotationBase {
   width: number;
   height: number;
   strokeColor: string;
+  fillColor: string;
   strokeWidth: number;
   strokeStyle: AnnotationStrokeStyle;
 }

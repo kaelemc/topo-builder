@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import {
   Box,
   Typography,
@@ -9,12 +9,10 @@ import {
   Autocomplete,
   Chip,
   Divider,
-  InputAdornment,
-  Tooltip,
 } from '@mui/material';
-import { Delete as DeleteIcon, Add as AddIcon, ContentCopy as CopyIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon, Add as AddIcon, Check as CheckIcon } from '@mui/icons-material';
 
-import { CARD_BG, CARD_BORDER } from '../../lib/constants';
+import { CARD_BG, CARD_BORDER, COLOR_PALETTE } from '../../lib/constants';
 
 const SPACE_BETWEEN = 'space-between';
 
@@ -263,58 +261,46 @@ export function LabelEditor({
   );
 }
 
-export function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (color: string) => void }) {
-  const colorRef = useRef<HTMLInputElement>(null);
+function isLightColor(hex: string): boolean {
+  const c = hex.replace('#', '');
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150;
+}
 
-  const handleCopy = () => { void navigator.clipboard.writeText(value); };
+const DEFAULT_PALETTE_COLUMNS = 8;
 
+export function ColorField({ label, value, onChange, columns = DEFAULT_PALETTE_COLUMNS }: { label?: string; value: string; onChange: (color: string) => void; columns?: number }) {
+  const colors = COLOR_PALETTE.map(p => p.stroke);
   return (
-    <TextField
-      label={label}
-      value={value}
-      onChange={e => {
-        const v = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;
-        if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v);
-      }}
-      size="small"
-      fullWidth
-      slotProps={{
-        input: {
-          startAdornment: (
-            <InputAdornment position="start">
-              <Box
-                onClick={() => { colorRef.current?.click(); }}
-                sx={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 0.5,
-                  backgroundColor: value,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-              />
-              <input
-                ref={colorRef}
-                type="color"
-                value={value}
-                onChange={e => { onChange(e.target.value); }}
-                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-              />
-            </InputAdornment>
-          ),
-          endAdornment: (
-            <InputAdornment position="end">
-              <Tooltip title="Copy hex">
-                <IconButton size="small" onClick={handleCopy}>
-                  <CopyIcon sx={{ fontSize: 16 }} />
-                </IconButton>
-              </Tooltip>
-            </InputAdornment>
-          ),
-        },
-      }}
-    />
+    <Box>
+      {label && (
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+          {label}
+        </Typography>
+      )}
+      <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 0, borderRadius: 1, overflow: 'hidden' }}>
+        {colors.map(color => {
+          const selected = value.toLowerCase() === color.toLowerCase();
+          return (
+            <Box
+              key={color}
+              onClick={() => { onChange(color); }}
+              sx={{
+                aspectRatio: '1',
+                backgroundColor: color,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {selected && <CheckIcon sx={{ width: '70%', height: '70%', color: isLightColor(color) ? 'black' : 'white' }} />}
+            </Box>
+          );
+        })}
+      </Box>
+    </Box>
   );
 }

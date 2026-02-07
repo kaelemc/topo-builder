@@ -28,7 +28,7 @@ import { useRef, useEffect, useState, type ReactNode } from 'react';
 
 import type { NodeTemplate, SimNodeTemplate, LinkTemplate } from '../types/schema';
 import type { UIAnnotationInput, AnnotationShapeType } from '../types/ui';
-import { DEFAULT_ANNOTATION_COLOR, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT } from '../lib/constants';
+import { DEFAULT_ANNOTATION_COLOR, DEFAULT_ANNOTATION_FILL_COLOR, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT } from '../lib/constants';
 
 const SUBMENU_CHEVRON_SX = { ml: 1, color: 'text.secondary' } as const;
 
@@ -101,6 +101,7 @@ function ShapeSubmenu({
       width: DEFAULT_ANNOTATION_WIDTH,
       height: DEFAULT_ANNOTATION_HEIGHT,
       strokeColor: DEFAULT_ANNOTATION_COLOR,
+      fillColor: DEFAULT_ANNOTATION_FILL_COLOR,
       strokeWidth: 2,
       strokeStyle: 'solid',
     });

@@ -42,7 +42,7 @@ import {
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { toSvg } from 'html-to-image';
-import { getNodesBounds } from '@xyflow/react';
+import { useReactFlow, getNodesBounds } from '@xyflow/react';
 
 import { useTopologyStore } from '../lib/store';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
@@ -56,6 +56,7 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
+  const { getNodes } = useReactFlow();
   const darkMode = useTopologyStore(state => state.darkMode);
   const setDarkMode = useTopologyStore(state => state.setDarkMode);
 
@@ -151,7 +152,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
 
     const padding = 100;
-    const nodesBounds = getNodesBounds(nodes);
+    const nodesBounds = getNodesBounds(getNodes());
     const imageWidth = Math.max(nodesBounds.width + padding * 2, 400);
     const imageHeight = Math.max(nodesBounds.height + padding * 2, 400);
 

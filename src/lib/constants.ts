@@ -14,9 +14,27 @@ export const ANNOTATION_NAME_PREFIX = 'topobuilder.eda.labs/name-prefix';
 
 export const ANNOTATION_DRAWING = 'topobuilder.eda.labs/drawing';
 
-export const DEFAULT_ANNOTATION_COLOR = '#7d33f2';
+export const DEFAULT_ANNOTATION_COLOR = '#314354';
+export const DEFAULT_ANNOTATION_FILL_COLOR = '#1A222E';
 export const DEFAULT_ANNOTATION_WIDTH = 200;
 export const DEFAULT_ANNOTATION_HEIGHT = 100;
+
+export interface ColorPaletteEntry {
+  stroke: string;
+  fill: string;
+}
+
+export const COLOR_PALETTE: ColorPaletteEntry[] = [
+  { stroke: '#bcd0fb', fill: '#3C4555' },
+  { stroke: '#64d16c', fill: '#2B4539' },
+  { stroke: '#808080', fill: '#30353E' },
+  { stroke: '#fae356', fill: '#484934' },
+  { stroke: '#b7322a', fill: '#3C252C' },
+  { stroke: '#eb7b35', fill: '#47342E' },
+  { stroke: '#5ac5fa', fill: '#2C4A60' },
+  { stroke: '#3474f7', fill: '#305586' },
+  { stroke: '#314354', fill: '#1A222E' },
+];
 
 export const DEFAULT_INTERFACE = 'ethernet-1-1';
 export const DEFAULT_SIM_INTERFACE = 'eth1';

@@ -725,6 +725,7 @@ function TopologyEditorInner() {
           width: ann.width,
           height: ann.height,
           strokeColor: ann.strokeColor,
+          fillColor: ann.fillColor,
           strokeWidth: ann.strokeWidth,
           strokeStyle: ann.strokeStyle,
         },
@@ -1132,6 +1133,7 @@ function TopologyEditorInner() {
             edgeTypes={edgeTypes}
             nodesDraggable
             nodeDragThreshold={2}
+            elevateNodesOnSelect={false}
             fitView
             snapToGrid
             snapGrid={[15, 15]}

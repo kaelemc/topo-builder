@@ -4,6 +4,8 @@ import {
   Select,
   MenuItem,
   FormControl,
+  FormControlLabel,
+  Checkbox,
   InputLabel,
   Box,
   IconButton,
@@ -11,9 +13,10 @@ import {
 import { Delete as DeleteIcon } from '@mui/icons-material';
 
 import { useTopologyStore } from '../../lib/store';
+import { COLOR_PALETTE } from '../../lib/constants';
 import type { UIAnnotation, UITextAnnotation, UIShapeAnnotation, AnnotationShapeType, AnnotationStrokeStyle } from '../../types/ui';
 
-import { ColorField, PanelHeader } from './shared';
+import { ColorField, PanelHeader, PanelSection } from './shared';
 
 function TextAnnotationFields({ annotation }: { annotation: UITextAnnotation }) {
   const updateAnnotation = useTopologyStore(s => s.updateAnnotation);
@@ -47,11 +50,14 @@ function TextAnnotationFields({ annotation }: { annotation: UITextAnnotation }) 
         fullWidth
       />
 
-      <ColorField
-        label="Font Color"
-        value={annotation.fontColor}
-        onChange={color => { updateAnnotation(annotation.id, { fontColor: color }); }}
-      />
+      <PanelSection title="Font">
+        <ColorField
+          label="Color"
+          value={annotation.fontColor}
+          onChange={color => { updateAnnotation(annotation.id, { fontColor: color }); }}
+          columns={6}
+        />
+      </PanelSection>
     </>
   );
 }
@@ -92,35 +98,62 @@ function ShapeAnnotationFields({ annotation }: { annotation: UIShapeAnnotation }
         />
       </Box>
 
-      <ColorField
-        label="Stroke Color"
-        value={annotation.strokeColor}
-        onChange={color => { updateAnnotation(annotation.id, { strokeColor: color }); }}
-      />
-
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        <TextField
-          label="Stroke Width"
-          type="number"
-          value={annotation.strokeWidth}
-          onChange={e => { updateAnnotation(annotation.id, { strokeWidth: Math.max(1, parseInt(e.target.value) || 1) }); }}
-          size="small"
-          sx={{ flex: 1 }}
-          slotProps={{ htmlInput: { min: 0, max: 20 } }}
+      <PanelSection title="Color">
+        <ColorField
+          value={annotation.strokeColor}
+          onChange={color => {
+            const pair = COLOR_PALETTE.find(p => p.stroke.toLowerCase() === color.toLowerCase());
+            const fillColor = annotation.fillColor === 'none' ? 'none' : (pair?.fill ?? annotation.fillColor);
+            updateAnnotation(annotation.id, { strokeColor: color, fillColor });
+          }}
+          columns={9}
         />
-        <FormControl size="small" sx={{ flex: 1 }}>
-          <InputLabel>Stroke Style</InputLabel>
-          <Select
-            value={annotation.strokeStyle}
-            label="Stroke Style"
-            onChange={e => { updateAnnotation(annotation.id, { strokeStyle: e.target.value as AnnotationStrokeStyle }); }}
-          >
-            <MenuItem value="solid">Solid</MenuItem>
-            <MenuItem value="dashed">Dashed</MenuItem>
-            <MenuItem value="dotted">Dotted</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
+
+        <FormControlLabel
+          control={
+            <Checkbox
+              size="small"
+              checked={annotation.fillColor !== 'none'}
+              onChange={(_e, checked) => {
+                if (checked) {
+                  const pair = COLOR_PALETTE.find(p => p.stroke.toLowerCase() === annotation.strokeColor.toLowerCase());
+                  updateAnnotation(annotation.id, { fillColor: pair?.fill ?? '#30353E' });
+                } else {
+                  updateAnnotation(annotation.id, { fillColor: 'none' });
+                }
+              }}
+            />
+          }
+          label="Fill"
+          sx={{ mt: 1 }}
+        />
+      </PanelSection>
+
+      <PanelSection title="Stroke">
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            label="Width"
+            type="number"
+            value={annotation.strokeWidth}
+            onChange={e => { updateAnnotation(annotation.id, { strokeWidth: Math.max(1, parseInt(e.target.value) || 1) }); }}
+            size="small"
+            sx={{ flex: 1 }}
+            slotProps={{ htmlInput: { min: 0, max: 20 } }}
+          />
+          <FormControl size="small" sx={{ flex: 1 }}>
+            <InputLabel>Style</InputLabel>
+            <Select
+              value={annotation.strokeStyle}
+              label="Style"
+              onChange={e => { updateAnnotation(annotation.id, { strokeStyle: e.target.value as AnnotationStrokeStyle }); }}
+            >
+              <MenuItem value="solid">Solid</MenuItem>
+              <MenuItem value="dashed">Dashed</MenuItem>
+              <MenuItem value="dotted">Dotted</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+      </PanelSection>
     </>
   );
 }

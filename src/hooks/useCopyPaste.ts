@@ -210,7 +210,7 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
         if (type === 'text') {
           addAnnotation({ type, position: offsetPos, text: ann.text, fontSize: ann.fontSize, fontColor: ann.fontColor });
         } else {
-          addAnnotation({ type, position: offsetPos, shapeType: ann.shapeType, width: ann.width, height: ann.height, strokeColor: ann.strokeColor, strokeWidth: ann.strokeWidth, strokeStyle: ann.strokeStyle });
+          addAnnotation({ type, position: offsetPos, shapeType: ann.shapeType, width: ann.width, height: ann.height, strokeColor: ann.strokeColor, fillColor: ann.fillColor, strokeWidth: ann.strokeWidth, strokeStyle: ann.strokeStyle });
         }
       }
     }
