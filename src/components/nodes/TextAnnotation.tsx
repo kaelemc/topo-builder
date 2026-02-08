@@ -61,7 +61,7 @@ export default function TextAnnotation({ data, selected }: NodeProps) {
           ref={textareaRef}
           className="nodrag nowheel"
           value={draftText}
-          onChange={e => setDraftText(e.target.value)}
+          onChange={e => { setDraftText(e.target.value); }}
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
           style={{
