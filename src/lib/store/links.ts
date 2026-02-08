@@ -114,7 +114,7 @@ function findExistingEdge(
       if (edgeSrcHandle === sourceHandle && edgeTgtHandle === targetHandle) return edge;
     }
     if (edge.source === targetId && edge.target === sourceId) {
-      if (edgeSrcHandle === targetHandle && edgeTgtHandle === sourceHandle) return edge;
+      if (toSourceHandle(edgeSrcHandle) === toSourceHandle(targetHandle) && toSourceHandle(edgeTgtHandle) === toSourceHandle(sourceHandle)) return edge;
     }
   }
   return undefined;

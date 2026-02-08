@@ -1159,7 +1159,7 @@ function TopologyEditorInner() {
 
         <SidePanel
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={(tab: number) => { setActiveTab(tab); if (tab === 0) triggerYamlRefresh(); }}
           open={panelOpen}
           onToggle={() => { setPanelOpen(!panelOpen); }}
         />
