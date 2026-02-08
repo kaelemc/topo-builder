@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-import { canvasPane, getEdgeCount, getYamlContent, loadExpectedYaml } from './utils';
+import { canvasPane, getYamlContent, loadExpectedYaml } from './utils';
 import { NODE1_POS, NODE2_POS, EMPTY_POS, addContextMenuItem, connectNodes } from './lag-utils';
 
 test('Change link endpoint', async ({ page }) => {
