@@ -59,7 +59,10 @@ export const createSimNodeSlice: SimNodeSliceCreator = (set, get) => ({
     const nodes = get().nodes;
 
     // Validate the new sim node name before creating the node
-    const validationError = (validateSimNodeName as any)(name, nodes);
+    const existingNames = nodes
+      .filter(n => n.data.nodeType === 'simnode')
+      .map(n => n.data.name);
+    const validationError = validateSimNodeName(name, existingNames);
     if (validationError) {
       get().setError(validationError);
       return;
