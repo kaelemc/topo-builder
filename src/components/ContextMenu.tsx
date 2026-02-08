@@ -102,7 +102,7 @@ function ShapeSubmenu({
       height: DEFAULT_ANNOTATION_HEIGHT,
       strokeColor: DEFAULT_ANNOTATION_COLOR,
       fillColor: DEFAULT_ANNOTATION_FILL_COLOR,
-      strokeWidth: 2,
+      strokeWidth: 1,
       strokeStyle: 'solid',
     });
     onClose();
