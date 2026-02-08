@@ -47,6 +47,7 @@ import { validateNetworkTopology } from '../lib/validate';
 import type { ValidationResult } from '../types/ui';
 import type { Operation } from '../types/schema';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
+import { getEditorContent } from './YamlEditor';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -137,7 +138,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const handleValidate = () => {
-    const yaml = exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations });
+    const yaml = getEditorContent()
+      || exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations });
     setValidationResult(validateNetworkTopology(yaml));
     setValidationDialogOpen(true);
   };
