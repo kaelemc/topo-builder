@@ -268,7 +268,7 @@ function NodeTemplateEditor({
   const { handleAddLabel, handleUpdateLabel, handleDeleteLabel } = createTemplateLabelHandlers(template, onUpdate);
 
   return (
-    <PanelCard highlighted>
+    <PanelCard>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <Box
           sx={{
@@ -477,7 +477,7 @@ function LinkTemplateEditor({
   const { handleAddLabel, handleUpdateLabel, handleDeleteLabel } = createTemplateLabelHandlers(template, onUpdate);
 
   return (
-    <PanelCard highlighted>
+    <PanelCard>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <Box
           sx={{
@@ -692,7 +692,7 @@ function SimNodeTemplateEditor({
   const handleNameBlur = createNameBlurHandler(template.name, localName, setLocalName, onUpdate);
 
   return (
-    <PanelCard highlighted>
+    <PanelCard>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <Box
           sx={{

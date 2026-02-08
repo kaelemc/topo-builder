@@ -201,8 +201,11 @@ export function NodeEditor({
                       variant="outlined"
                       sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                       onClick={() => {
-                        useTopologyStore.getState().selectEdge(edge.id);
-                        useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
+                        const store = useTopologyStore.getState();
+                        const expanded = new Set(store.expandedEdges);
+                        expanded.add(edge.id);
+                        useTopologyStore.setState({ expandedEdges: expanded });
+                        store.selectMemberLink(edge.id, idx, false);
                       }}
                     >
                       <Typography variant="body2" fontWeight={500} sx={{ mb: '0.25rem' }}>

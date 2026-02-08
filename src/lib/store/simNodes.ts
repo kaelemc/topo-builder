@@ -6,14 +6,13 @@
 
 import type { StateCreator } from 'zustand';
 
-import type { UINode, UIEdge, UISimNode } from '../../types/ui';
+import type { UINode, UIEdge } from '../../types/ui';
 import { validateSimNodeName } from '../utils';
 import type { SimNodeTemplate } from '../../types/schema';
 
 export interface SimNodeState {
   simulation: {
     simNodeTemplates: SimNodeTemplate[];
-    simNodes: UISimNode[];
     topology?: unknown;
   };
 }
@@ -52,7 +51,6 @@ export type SimNodeSliceCreator = StateCreator<
 export const createSimNodeSlice: SimNodeSliceCreator = (set, get) => ({
   simulation: {
     simNodeTemplates: [],
-    simNodes: [],
     topology: undefined,
   },
 

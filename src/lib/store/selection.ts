@@ -137,7 +137,7 @@ export const createSelectionSlice: SelectionSliceCreator = (set, get) => ({
 
   syncSelectionFromReactFlow: (nodeIds: string[], edgeIds: string[]) => {
     if (get()._skipNextSelectionSync) {
-      set({ _skipNextSelectionSync: false, selectedLagId: null, selectedMemberLinkIndices: [] });
+      set({ _skipNextSelectionSync: false });
       return;
     }
 

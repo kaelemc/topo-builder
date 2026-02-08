@@ -83,21 +83,16 @@ export function PanelSection({
 
 export function PanelCard({
   children,
-  highlighted,
 }: {
   children: ReactNode;
-  highlighted?: boolean;
 }) {
   return (
     <Paper
       variant="outlined"
       sx={{
         p: '0.5rem',
-        bgcolor: highlighted ? 'action.hover' : CARD_BG,
+        bgcolor: CARD_BG,
         borderColor: CARD_BORDER,
-        '&:hover': highlighted ? {
-          borderColor: 'action.disabled',
-        } : undefined,
       }}
     >
       {children}

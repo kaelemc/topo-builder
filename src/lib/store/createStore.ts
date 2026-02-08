@@ -445,7 +445,6 @@ export const createTopologyStore = () => {
             const result = yamlToUI(yamlString, {
               existingNodes: get().nodes,
               existingEdges: get().edges,
-              existingSimNodes: get().simulation.simNodes,
             });
 
             if (!result) return false;
@@ -485,7 +484,7 @@ export const createTopologyStore = () => {
               expandedEdges: new Set<string>(),
               nodeTemplates: baseTemplate.nodeTemplates || [],
               linkTemplates: baseTemplate.linkTemplates || [],
-              simulation: baseTemplate.simulation || { simNodeTemplates: [], simNodes: [] },
+              simulation: baseTemplate.simulation || { simNodeTemplates: [] },
               selectedNodeId: null,
               selectedNodeIds: [],
               selectedEdgeId: null,
@@ -565,7 +564,7 @@ export const createTopologyStore = () => {
           // Override initial state from base template
           nodeTemplates: baseTemplate.nodeTemplates || [],
           linkTemplates: baseTemplate.linkTemplates || [],
-          simulation: baseTemplate.simulation || { simNodeTemplates: [], simNodes: [] },
+          simulation: baseTemplate.simulation || { simNodeTemplates: [] },
         };
       },
       {

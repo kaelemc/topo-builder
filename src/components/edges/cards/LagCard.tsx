@@ -1,5 +1,6 @@
 import { Box, Chip, Paper, Typography } from '@mui/material';
 
+import { CARD_BG, CARD_BORDER } from '../../../lib/constants';
 import { useTopologyStore } from '../../../lib/store';
 import type { UILagGroup } from '../../../types/ui';
 
@@ -20,12 +21,13 @@ export function LagCard({
   otherNode,
   selectEdgeOnClick = false,
 }: LagCardProps) {
-  const selectEdge = useTopologyStore(state => state.selectEdge);
   const selectLag = useTopologyStore(state => state.selectLag);
 
   const handleClick = () => {
     if (selectEdgeOnClick) {
-      selectEdge(edgeId);
+      const expanded = new Set(useTopologyStore.getState().expandedEdges);
+      expanded.add(edgeId);
+      useTopologyStore.setState({ expandedEdges: expanded });
     }
     selectLag(edgeId, lag.id);
   };
@@ -33,7 +35,7 @@ export function LagCard({
   return (
     <Paper
       variant="outlined"
-      sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+      sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
       onClick={handleClick}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: '0.25rem' }}>

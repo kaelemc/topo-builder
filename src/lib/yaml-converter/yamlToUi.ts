@@ -18,7 +18,6 @@ import type {
   UIMemberLink,
   UILagGroup,
   UIEsiLeaf,
-  UISimNode,
   UISimulation,
   UIAnnotation,
 } from '../../types/ui';
@@ -42,7 +41,6 @@ import {
 export interface YamlToUIOptions {
   existingNodes?: UINode[];
   existingEdges?: UIEdge[];
-  existingSimNodes?: UISimNode[];
 }
 
 export interface YamlToUIResult {
@@ -66,7 +64,7 @@ function buildEmptyYamlToUIResult(): YamlToUIResult {
     linkTemplates: [],
     nodes: [],
     edges: [],
-    simulation: { simNodeTemplates: [], simNodes: [] },
+    simulation: { simNodeTemplates: [] },
     annotations: [],
   };
 }
@@ -79,14 +77,6 @@ function indexExistingNodesById(existingNodes: UINode[]): Map<string, UINode> {
   return map;
 }
 
-function indexExistingSimNodesById(existingSimNodes: UISimNode[]): Map<string, UISimNode> {
-  const map = new Map<string, UISimNode>();
-  for (const simNode of existingSimNodes) {
-    map.set(simNode.id, simNode);
-  }
-  return map;
-}
-
 function buildNodeNameToIdMap(existingNodes: UINode[]): Map<string, string> {
   const nodeNameToId = new Map<string, string>();
   for (const node of existingNodes) {
@@ -95,12 +85,8 @@ function buildNodeNameToIdMap(existingNodes: UINode[]): Map<string, string> {
   return nodeNameToId;
 }
 
-function buildSimNodeNameToIdMap(existingNodes: UINode[], existingSimNodes: UISimNode[]): Map<string, string> {
+function buildSimNodeNameToIdMap(existingNodes: UINode[]): Map<string, string> {
   const simNodeNameToId = new Map<string, string>();
-
-  for (const node of existingSimNodes) {
-    simNodeNameToId.set(node.name, node.id);
-  }
 
   for (const node of existingNodes) {
     if (node.data.nodeType === 'simnode') {
@@ -214,30 +200,20 @@ function parseYamlTopoNodes(options: {
   return { nodes, nameToId };
 }
 
-function getExistingSimNodePosition(options: {
-  existingId: string;
-  existingNodesById: Map<string, UINode>;
-  existingSimNodesById: Map<string, UISimNode>;
-}): { x: number; y: number } | undefined {
-  const { existingId, existingNodesById, existingSimNodesById } = options;
-
-  const existingNode = existingNodesById.get(existingId);
-  if (existingNode) return existingNode.position;
-
-  const existingSimNode = existingSimNodesById.get(existingId);
-  if (existingSimNode?.position) return existingSimNode.position;
-
-  return undefined;
+function getExistingSimNodePosition(
+  existingId: string,
+  existingNodesById: Map<string, UINode>,
+): { x: number; y: number } | undefined {
+  return existingNodesById.get(existingId)?.position;
 }
 
 function parseYamlSimulation(options: {
   simData: Simulation | undefined;
   existingNodesById: Map<string, UINode>;
-  existingSimNodesById: Map<string, UISimNode>;
   simNodeNameToId: Map<string, string>;
   nameToId: Map<string, string>;
 }): { simNodeTemplates: SimNodeTemplate[]; simNodeNodes: UINode[]; topology: unknown[] | undefined } {
-  const { simData, existingNodesById, existingSimNodesById, simNodeNameToId, nameToId } = options;
+  const { simData, existingNodesById, simNodeNameToId, nameToId } = options;
 
   const simNodeTemplates = asArray<SimNodeTemplate>(simData?.simNodeTemplates);
   const simNodes = asArray<SimNode>(simData?.simNodes);
@@ -249,7 +225,7 @@ function parseYamlSimulation(options: {
 
     const existingId = simNodeNameToId.get(simNode.name);
     const existingPosition = existingId
-      ? getExistingSimNodePosition({ existingId, existingNodesById, existingSimNodesById })
+      ? getExistingSimNodePosition(existingId, existingNodesById)
       : undefined;
 
     let id = existingId;
@@ -298,13 +274,11 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
     const {
       existingNodes = [],
       existingEdges = [],
-      existingSimNodes = [],
     } = options;
 
     const existingNodesById = indexExistingNodesById(existingNodes);
-    const existingSimNodesById = indexExistingSimNodesById(existingSimNodes);
     const nodeNameToId = buildNodeNameToIdMap(existingNodes);
-    const simNodeNameToId = buildSimNodeNameToIdMap(existingNodes, existingSimNodes);
+    const simNodeNameToId = buildSimNodeNameToIdMap(existingNodes);
 
     const { topologyName, namespace, operation } = parseYamlMetadata(parsed);
 
@@ -324,7 +298,6 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
     const { simNodeTemplates, simNodeNodes, topology } = parseYamlSimulation({
       simData,
       existingNodesById,
-      existingSimNodesById,
       simNodeNameToId,
       nameToId,
     });
@@ -354,7 +327,6 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
       edges,
       simulation: {
         simNodeTemplates,
-        simNodes: [], // SimNodes are now in nodes[]
         topology,
       },
       annotations,
