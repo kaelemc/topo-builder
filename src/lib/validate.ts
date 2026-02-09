@@ -1,16 +1,9 @@
 import Ajv from 'ajv';
 import yaml from 'js-yaml';
+import { closest, distance } from 'fastest-levenshtein';
+
 import schemaJson from '../static/schema.json';
-
-export interface ValidationError {
-  path: string;
-  message: string;
-}
-
-export interface ValidationResult {
-  valid: boolean;
-  errors: ValidationError[];
-}
+import type { ValidationError, ValidationResult } from '../types/ui';
 
 let ajvInstance: Ajv | null = null;
 
@@ -30,6 +23,85 @@ function getAjv(): Ajv {
   ajvInstance.addKeyword('x-kubernetes-preserve-unknown-fields');
 
   return ajvInstance;
+}
+
+interface SchemaNode {
+  type?: string;
+  properties?: Record<string, SchemaNode>;
+  items?: SchemaNode;
+  additionalProperties?: unknown;
+  'x-kubernetes-preserve-unknown-fields'?: boolean;
+}
+
+const MAX_SUGGEST_DISTANCE = 3;
+
+function validateUnknownProperties(value: unknown, schema: SchemaNode, path: string): ValidationError[] {
+  const errors: ValidationError[] = [];
+  if (!value || typeof value !== 'object') return errors;
+
+  if (schema.type === 'object' && schema.properties) {
+    // Skip objects that explicitly allow additional properties
+    if ((schema.additionalProperties && schema.additionalProperties !== false) || schema['x-kubernetes-preserve-unknown-fields']) {
+      return errors;
+    }
+
+    const validKeys = Object.keys(schema.properties);
+    const record = value as Record<string, unknown>;
+
+    for (const key of Object.keys(record)) {
+      if (key in schema.properties) {
+        // Recurse into known properties
+        errors.push(...validateUnknownProperties(record[key], schema.properties[key], `${path}/${key}`));
+      } else {
+        // Unknown property — suggest the closest match
+        let message: string;
+        if (validKeys.length > 0) {
+          const match = closest(key, validKeys);
+          const dist = distance(key, match);
+          message = dist <= MAX_SUGGEST_DISTANCE
+            ? `Unknown field "${key}", did you mean "${match}"?`
+            : `Unknown field "${key}" is not a valid property`;
+        } else {
+          message = `Unknown field "${key}" is not a valid property`;
+        }
+        const fieldPath = path ? `${path}/${key}` : `/${key}`;
+        errors.push({ path: fieldPath, message });
+      }
+    }
+    return errors;
+  }
+
+  const { items } = schema;
+  if (schema.type === 'array' && items && Array.isArray(value)) {
+    value.forEach((item, i) => {
+      errors.push(...validateUnknownProperties(item, items, `${path}/${i}`));
+    });
+    return errors;
+  }
+
+  // For objects without explicit type but with properties (nested schema)
+  if (schema.properties && !schema.type) {
+    if ((schema.additionalProperties && schema.additionalProperties !== false) || schema['x-kubernetes-preserve-unknown-fields']) {
+      return errors;
+    }
+    const validKeys = Object.keys(schema.properties);
+    const record = value as Record<string, unknown>;
+    for (const key of Object.keys(record)) {
+      if (key in schema.properties) {
+        errors.push(...validateUnknownProperties(record[key], schema.properties[key], `${path}/${key}`));
+      } else if (validKeys.length > 0) {
+        const match = closest(key, validKeys);
+        const dist = distance(key, match);
+        const message = dist <= MAX_SUGGEST_DISTANCE
+          ? `Unknown field "${key}", did you mean "${match}"?`
+          : `Unknown field "${key}" is not a valid property`;
+        const fieldPath = path ? `${path}/${key}` : `/${key}`;
+        errors.push({ path: fieldPath, message });
+      }
+    }
+  }
+
+  return errors;
 }
 
 export function validateNetworkTopology(yamlString: string): ValidationResult {
@@ -77,6 +149,9 @@ export function validateNetworkTopology(yamlString: string): ValidationResult {
       }
     }
 
+    const unknownPropErrors = validateUnknownProperties(doc, schema as SchemaNode, '');
+    errors.push(...unknownPropErrors);
+
     const semanticErrors = validateCrossReferences(doc as Record<string, unknown>);
     errors.push(...semanticErrors);
 
@@ -113,6 +188,65 @@ interface ParsedDoc {
   };
 }
 
+function asArray<T>(value: T[] | undefined | null): T[] {
+  if (value) return value;
+  return [];
+}
+
+function validateInterfaceUniqueness(links: Array<NonNullable<NonNullable<ParsedDoc['spec']>['links']>[number]>): ValidationError[] {
+  type InterfaceUsage = {
+    linkName: string;
+    linkIndex: number;
+    endpointIndex: number;
+    side: 'local' | 'remote';
+  };
+
+  const errors: ValidationError[] = [];
+  const interfacesByNode = new Map<string, Map<string, InterfaceUsage[]>>();
+
+  links.forEach((link, linkIndex) => {
+    asArray(link.endpoints).forEach((endpoint, endpointIndex) => {
+      const maybeAddUsage = (side: 'local' | 'remote', node: string, iface: string) => {
+        let nodeInterfaces = interfacesByNode.get(node);
+        if (!nodeInterfaces) {
+          nodeInterfaces = new Map();
+          interfacesByNode.set(node, nodeInterfaces);
+        }
+
+        let ifaceList = nodeInterfaces.get(iface);
+        if (!ifaceList) {
+          ifaceList = [];
+          nodeInterfaces.set(iface, ifaceList);
+        }
+
+        ifaceList.push({ linkName: link.name, linkIndex, endpointIndex, side });
+      };
+
+      const localNode = endpoint.local?.node;
+      const localIface = endpoint.local?.interface;
+      if (localNode && localIface) maybeAddUsage('local', localNode, localIface);
+
+      const remoteNode = endpoint.remote?.node;
+      const remoteIface = endpoint.remote?.interface;
+      if (remoteNode && remoteIface) maybeAddUsage('remote', remoteNode, remoteIface);
+    });
+  });
+
+  for (const [nodeName, interfaces] of interfacesByNode) {
+    for (const [ifaceName, usages] of interfaces) {
+      if (usages.length <= 1) continue;
+
+      const linkNames = usages.map(u => u.linkName).join(', ');
+      errors.push({
+        path: '/spec/links',
+        message: `Node "${nodeName}" has duplicate interface "${ifaceName}" used in links: ${linkNames}`,
+      });
+    }
+  }
+
+  return errors;
+}
+
 function validateCrossReferences(doc: Record<string, unknown>): ValidationError[] {
   const errors: ValidationError[] = [];
   const parsed = doc as ParsedDoc;
@@ -120,13 +254,20 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
 
   if (!spec) return errors;
 
-  const nodeNames = new Set((spec.nodes || []).map(n => n.name));
-  const nodeTemplateNames = new Set((spec.nodeTemplates || []).map(t => t.name));
-  const linkTemplateNames = new Set((spec.linkTemplates || []).map(t => t.name));
-  const simNodeNames = new Set((spec.simulation?.simNodes || []).map(n => n.name));
-  const simNodeTemplateNames = new Set((spec.simulation?.simNodeTemplates || []).map(t => t.name));
+  const nodes = asArray(spec.nodes);
+  const links = asArray(spec.links);
+  const nodeTemplates = asArray(spec.nodeTemplates);
+  const linkTemplates = asArray(spec.linkTemplates);
+  const simNodes = asArray(spec.simulation?.simNodes);
+  const simNodeTemplates = asArray(spec.simulation?.simNodeTemplates);
 
-  (spec.nodes || []).forEach((node, i) => {
+  const nodeNames = new Set(nodes.map(n => n.name));
+  const nodeTemplateNames = new Set(nodeTemplates.map(t => t.name));
+  const linkTemplateNames = new Set(linkTemplates.map(t => t.name));
+  const simNodeNames = new Set(simNodes.map(n => n.name));
+  const simNodeTemplateNames = new Set(simNodeTemplates.map(t => t.name));
+
+  nodes.forEach((node, i) => {
     if (node.template && !nodeTemplateNames.has(node.template)) {
       errors.push({
         path: `/spec/nodes/${i}/template`,
@@ -135,7 +276,7 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
     }
   });
 
-  (spec.links || []).forEach((link, i) => {
+  links.forEach((link, i) => {
     if (link.template && !linkTemplateNames.has(link.template)) {
       errors.push({
         path: `/spec/links/${i}/template`,
@@ -143,7 +284,7 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
       });
     }
 
-    (link.endpoints || []).forEach((endpoint, j) => {
+    asArray(link.endpoints).forEach((endpoint, j) => {
       if (endpoint.local?.node) {
         const localNode = endpoint.local.node;
         if (!nodeNames.has(localNode) && !simNodeNames.has(localNode)) {
@@ -165,7 +306,7 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
     });
   });
 
-  (spec.simulation?.simNodes || []).forEach((simNode, i) => {
+  simNodes.forEach((simNode, i) => {
     if (simNode.template && !simNodeTemplateNames.has(simNode.template)) {
       errors.push({
         path: `/spec/simulation/simNodes/${i}/template`,
@@ -174,48 +315,7 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
     }
   });
 
-  const interfacesByNode = new Map<string, Map<string, { linkName: string; linkIndex: number; endpointIndex: number; side: string }[]>>();
-
-  (spec.links || []).forEach((link, linkIndex) => {
-    (link.endpoints || []).forEach((endpoint, endpointIndex) => {
-      if (endpoint.local?.node && endpoint.local?.interface) {
-        const node = endpoint.local.node;
-        const iface = endpoint.local.interface;
-        if (!interfacesByNode.has(node)) {
-          interfacesByNode.set(node, new Map());
-        }
-        const nodeInterfaces = interfacesByNode.get(node)!;
-        if (!nodeInterfaces.has(iface)) {
-          nodeInterfaces.set(iface, []);
-        }
-        nodeInterfaces.get(iface)!.push({ linkName: link.name, linkIndex, endpointIndex, side: 'local' });
-      }
-      if (endpoint.remote?.node && endpoint.remote?.interface) {
-        const node = endpoint.remote.node;
-        const iface = endpoint.remote.interface;
-        if (!interfacesByNode.has(node)) {
-          interfacesByNode.set(node, new Map());
-        }
-        const nodeInterfaces = interfacesByNode.get(node)!;
-        if (!nodeInterfaces.has(iface)) {
-          nodeInterfaces.set(iface, []);
-        }
-        nodeInterfaces.get(iface)!.push({ linkName: link.name, linkIndex, endpointIndex, side: 'remote' });
-      }
-    });
-  });
-
-  for (const [nodeName, interfaces] of interfacesByNode) {
-    for (const [ifaceName, usages] of interfaces) {
-      if (usages.length > 1) {
-        const linkNames = usages.map(u => u.linkName).join(', ');
-        errors.push({
-          path: `/spec/links`,
-          message: `Node "${nodeName}" has duplicate interface "${ifaceName}" used in links: ${linkNames}`,
-        });
-      }
-    }
-  }
+  errors.push(...validateInterfaceUniqueness(links));
 
   return errors;
 }

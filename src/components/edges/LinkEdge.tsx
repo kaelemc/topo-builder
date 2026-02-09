@@ -1,48 +1,159 @@
-import { type EdgeProps } from '@xyflow/react';
+import { type EdgeProps, type Position, useInternalNode } from '@xyflow/react';
+
 import { useTopologyStore } from '../../lib/store';
-import type { TopologyEdgeData } from '../../types/topology';
-import StandardEdge from './StandardEdge';
-import ExpandedBundleEdge from './ExpandedBundleEdge';
-import EsiLagEdge from './EsiLagEdge';
+import type { UIEdgeData } from '../../types/ui';
 import { topologyEdgeTestId } from '../../lib/testIds';
+import { getHandleCoordinates, getFloatingEdgeParams } from '../../lib/edgeUtils';
+
+import StandardEdge from './StandardEdge';
+import BundleEdge from './BundleEdge';
+import EsiLagEdge from './EsiLagEdge';
+
+function coalesce<T>(value: T | null | undefined, fallback: T): T {
+  if (value == null) return fallback;
+  return value;
+}
+
+function asArray<T>(value: T[] | undefined | null): T[] {
+  if (value) return value;
+  return [];
+}
+
+function isSimNodeEdgeFromIds(source: string, target: string): boolean {
+  if (source.startsWith('sim-')) return true;
+  if (target.startsWith('sim-')) return true;
+  return false;
+}
+
+function getEdgeNodes(edgeData: UIEdgeData | undefined, source: string, target: string) {
+  return {
+    edgeNodeA: coalesce(edgeData?.sourceNode, source),
+    edgeNodeB: coalesce(edgeData?.targetNode, target),
+  };
+}
 
 export default function LinkEdge({
   id,
   source,
   target,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition,
-  targetPosition,
+  sourceHandleId,
+  targetHandleId,
   data,
   selected,
 }: EdgeProps) {
-  const edgeData = data as TopologyEdgeData | undefined;
-  const isSimNodeEdge = source?.startsWith('sim-') || target?.startsWith('sim-');
+  const edgeData = data as UIEdgeData | undefined;
+  const isSimNodeEdge = isSimNodeEdgeFromIds(source, target);
 
-  const edgeNodeA = edgeData?.sourceNode ?? source;
-  const edgeNodeB = edgeData?.targetNode ?? target;
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+
+  const { edgeNodeA, edgeNodeB } = getEdgeNodes(edgeData, source, target);
   const edgeTestId = topologyEdgeTestId(edgeNodeA, edgeNodeB);
 
-  const expandedEdges = useTopologyStore((state) => state.expandedEdges);
-  const selectedMemberLinkIndices = useTopologyStore((state) => state.selectedMemberLinkIndices);
-  const selectedLagId = useTopologyStore((state) => state.selectedLagId);
-  const toggleEdgeExpanded = useTopologyStore((state) => state.toggleEdgeExpanded);
-  const selectMemberLink = useTopologyStore((state) => state.selectMemberLink);
-  const selectLag = useTopologyStore((state) => state.selectLag);
-  const nodes = useTopologyStore((state) => state.nodes);
-  const simNodes = useTopologyStore((state) => state.simulation.simNodes);
+  const expandedEdges = useTopologyStore(state => state.expandedEdges);
+  const selectedMemberLinkIndices = useTopologyStore(state => state.selectedMemberLinkIndices);
+  const selectedLagId = useTopologyStore(state => state.selectedLagId);
+  const selectedNodeId = useTopologyStore(state => state.selectedNodeId);
+  const toggleEdgeExpanded = useTopologyStore(state => state.toggleEdgeExpanded);
+  const selectMemberLink = useTopologyStore(state => state.selectMemberLink);
+  const selectLag = useTopologyStore(state => state.selectLag);
+  const nodes = useTopologyStore(state => state.nodes);
 
-  const isMultihomed = edgeData?.isMultihomed;
+  const isConnectedToSelectedNode = selectedNodeId !== null && (source === selectedNodeId || target === selectedNodeId);
+
+  if (!sourceNode || !targetNode) {
+    return null;
+  }
+
+  let sourceX: number;
+  let sourceY: number;
+  let sourcePosition: Position;
+  let targetX: number;
+  let targetY: number;
+  let targetPosition: Position;
+
+  if (!sourceHandleId && !targetHandleId) {
+    const floating = getFloatingEdgeParams(sourceNode, targetNode);
+    sourceX = floating.sx;
+    sourceY = floating.sy;
+    sourcePosition = floating.sourcePos;
+    targetX = floating.tx;
+    targetY = floating.ty;
+    targetPosition = floating.targetPos;
+  } else {
+    const sourceCoords = getHandleCoordinates(sourceNode, sourceHandleId ?? 'bottom');
+    const targetCoords = getHandleCoordinates(targetNode, targetHandleId ?? 'bottom');
+    sourceX = sourceCoords.x;
+    sourceY = sourceCoords.y;
+    sourcePosition = sourceCoords.position;
+    targetX = targetCoords.x;
+    targetY = targetCoords.y;
+    targetPosition = targetCoords.position;
+  }
+
+  const isEsiLag = edgeData?.edgeType === 'esilag';
   const esiLeaves = edgeData?.esiLeaves;
-  const memberLinks = edgeData?.memberLinks || [];
-  const lagGroups = edgeData?.lagGroups || [];
+  const memberLinks = asArray(edgeData?.memberLinks);
+  const lagGroups = asArray(edgeData?.lagGroups);
   const linkCount = memberLinks.length;
   const isExpanded = expandedEdges.has(id);
-  const isSelected = selected ?? false;
+  const isSelected = Boolean(selected);
 
+  const renderEsiLagEdge = () => {
+    if (!isEsiLag || !esiLeaves?.length) return null;
+
+    const nodeById = new Map(nodes.map(n => [n.id, n]));
+    const leafNodes = new Map<string, { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } }>();
+
+    for (const leaf of esiLeaves) {
+      const nodeInfo = nodeById.get(leaf.nodeId);
+      if (nodeInfo) leafNodes.set(leaf.nodeId, nodeInfo);
+    }
+
+    if (leafNodes.size < 1) return null;
+
+    return (
+      <EsiLagEdge
+        id={id}
+        testId={edgeTestId}
+        sourceNode={sourceNode}
+        isSelected={isSelected}
+        isSimNodeEdge={isSimNodeEdge}
+        isConnectedToSelectedNode={isConnectedToSelectedNode}
+        esiLeaves={esiLeaves}
+        leafNodes={leafNodes}
+      />
+    );
+  };
+
+  const renderBundleEdge = () => {
+    if (!isExpanded || linkCount <= 0) return null;
+
+    return (
+      <BundleEdge
+        edgeNodeA={edgeNodeA}
+        edgeNodeB={edgeNodeB}
+        sourceX={sourceX}
+        sourceY={sourceY}
+        targetX={targetX}
+        targetY={targetY}
+        sourcePosition={sourcePosition}
+        targetPosition={targetPosition}
+        isSelected={isSelected}
+        isSimNodeEdge={isSimNodeEdge}
+        isConnectedToSelectedNode={isConnectedToSelectedNode}
+        memberLinks={memberLinks}
+        lagGroups={lagGroups}
+        selectedMemberLinkIndices={selectedMemberLinkIndices}
+        selectedLagId={selectedLagId}
+        onDoubleClick={handleDoubleClick}
+        onMemberLinkClick={handleMemberLinkClick}
+        onMemberLinkContextMenu={handleMemberLinkContextMenu}
+        onLagClick={handleLagClick}
+        onLagContextMenu={handleLagContextMenu}
+      />
+    );
+  };
 
   const handleDoubleClick = () => {
     if (linkCount > 1) {
@@ -72,73 +183,11 @@ export default function LinkEdge({
     }
   };
 
-  if (isMultihomed && esiLeaves?.length) {
-    const findNodeInfo = (nodeId: string) => {
-      const topoNode = nodes.find(n => n.id === nodeId);
-      if (topoNode) return topoNode;
-      const simNode = simNodes?.find(s => s.id === nodeId);
-      if (simNode) return {
-        id: simNode.id,
-        position: simNode.position || { x: 0, y: 0 },
-        measured: { width: 120, height: 40 },
-      };
-      return null;
-    };
+  const esiLagEdgeElement = renderEsiLagEdge();
+  if (esiLagEdgeElement) return esiLagEdgeElement;
 
-    const leafNodes = new Map<string, { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } }>();
-
-    for (const leaf of esiLeaves) {
-      const nodeInfo = findNodeInfo(leaf.nodeId);
-      if (nodeInfo) {
-        leafNodes.set(leaf.nodeId, nodeInfo);
-      }
-    }
-
-    if (leafNodes.size >= 1) {
-      return (
-        <EsiLagEdge
-          id={id}
-          testId={edgeTestId}
-          sourceX={sourceX}
-          sourceY={sourceY}
-          targetX={targetX}
-          targetY={targetY}
-          sourcePosition={sourcePosition}
-          targetPosition={targetPosition}
-          isSelected={isSelected}
-          isSimNodeEdge={isSimNodeEdge}
-          esiLeaves={esiLeaves}
-          leafNodes={leafNodes}
-        />
-      );
-    }
-  }
-
-  if (isExpanded && linkCount > 0) {
-    return (
-      <ExpandedBundleEdge
-        edgeNodeA={edgeNodeA}
-        edgeNodeB={edgeNodeB}
-        sourceX={sourceX}
-        sourceY={sourceY}
-        targetX={targetX}
-        targetY={targetY}
-        sourcePosition={sourcePosition}
-        targetPosition={targetPosition}
-        isSelected={isSelected}
-        isSimNodeEdge={isSimNodeEdge}
-        memberLinks={memberLinks}
-        lagGroups={lagGroups}
-        selectedMemberLinkIndices={selectedMemberLinkIndices}
-        selectedLagId={selectedLagId}
-        onDoubleClick={handleDoubleClick}
-        onMemberLinkClick={handleMemberLinkClick}
-        onMemberLinkContextMenu={handleMemberLinkContextMenu}
-        onLagClick={handleLagClick}
-        onLagContextMenu={handleLagContextMenu}
-      />
-    );
-  }
+  const bundleEdgeElement = renderBundleEdge();
+  if (bundleEdgeElement) return bundleEdgeElement;
 
   return (
     <StandardEdge
@@ -151,6 +200,7 @@ export default function LinkEdge({
       targetPosition={targetPosition}
       isSelected={isSelected}
       isSimNodeEdge={isSimNodeEdge}
+      isConnectedToSelectedNode={isConnectedToSelectedNode}
       linkCount={linkCount}
       onDoubleClick={handleDoubleClick}
     />

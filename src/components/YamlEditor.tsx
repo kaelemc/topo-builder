@@ -2,10 +2,115 @@ import { useCallback, useRef, useEffect } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Box } from '@mui/material';
+
 import { useTopologyStore } from '../lib/store';
-import { exportToYaml } from '../lib/converter';
+import { ANNOTATION_EDGE_ID, ANNOTATION_MEMBER_INDEX } from '../lib/constants';
+import { exportToYaml } from '../lib/yaml-converter';
 
 let editorInstance: editor.IStandaloneCodeEditor | null = null;
+
+function escapeRegExp(s: string): string {
+  return s.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripSurroundingQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length < 2) return trimmed;
+
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  if ((first === '"' && last === '"') || (first === '\'' && last === '\'')) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function findYamlSection(lines: string[], key: string): { startLine: number; indent: number } | null {
+  const re = new RegExp(`^(\\s*)${escapeRegExp(key)}:\\s*$`);
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(re);
+    if (match) return { startLine: i, indent: match[1].length };
+  }
+  return null;
+}
+
+function getIndent(line: string): number {
+  return line.length - line.trimStart().length;
+}
+
+function getYamlListItemRange(lines: string[], startLine: number): { start: number; end: number } {
+  const listItemIndent = getIndent(lines[startLine] ?? '');
+  let end = startLine;
+
+  for (let i = startLine + 1; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedStart = line.trimStart();
+    const indent = line.length - trimmedStart.length;
+
+    if (trimmedStart.length === 0) {
+      end = i;
+      continue;
+    }
+
+    if (indent <= listItemIndent) break;
+    end = i;
+  }
+
+  return { start: startLine, end };
+}
+
+function collectYamlListItemStanzas(lines: string[], sectionStartLine: number, sectionIndent: number) {
+  const listItemIndent = sectionIndent + 2;
+  const stanzas: Array<{ start: number; end: number }> = [];
+
+  for (let i = sectionStartLine + 1; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedStart = line.trimStart();
+    const indent = line.length - trimmedStart.length;
+
+    if (trimmedStart.length > 0 && indent <= sectionIndent && !trimmedStart.startsWith('-')) break;
+
+    if (trimmedStart.startsWith('- ') && indent === listItemIndent) {
+      const range = getYamlListItemRange(lines, i);
+      stanzas.push(range);
+      i = range.end;
+    }
+  }
+
+  return stanzas;
+}
+
+function linkStanzaMatches(stanzaText: string, sourceNode: string, targetNode: string): boolean {
+  if (!stanzaText.includes(`node: ${sourceNode}`)) return false;
+  if (stanzaText.includes(`node: ${targetNode}`)) return true;
+  return stanzaText.includes(`simNode: ${targetNode}`);
+}
+
+function getYamlKeyValue(line: string, key: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  const re = new RegExp(`^['"]?${escapeRegExp(key)}['"]?:\\s*(.*)$`);
+  const match = trimmed.match(re);
+  if (!match) return null;
+
+  return stripSurroundingQuotes(match[1] ?? '');
+}
+
+function stanzaHasAnyKeyValue(
+  lines: string[],
+  range: { start: number; end: number },
+  keys: string[],
+  expected: string,
+): boolean {
+  for (let i = range.start; i <= range.end; i++) {
+    for (const key of keys) {
+      const value = getYamlKeyValue(lines[i] ?? '', key);
+      if (value === expected) return true;
+    }
+  }
+  return false;
+}
 
 export function getEditorContent(): string {
   return editorInstance?.getValue() || '';
@@ -65,61 +170,22 @@ export function jumpToLinkInEditor(sourceNode: string, targetNode: string): void
   const content = editorInstance.getValue();
   const lines = content.split('\n');
 
-  let linksStart = -1;
-  let linksIndent = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(/^(\s*)links:\s*$/);
-    if (match) {
-      linksStart = i;
-      linksIndent = match[1].length;
-      break;
-    }
-  }
+  const linksSection = findYamlSection(lines, 'links');
+  if (!linksSection) return;
 
-  if (linksStart === -1) return;
+  const stanzas = collectYamlListItemStanzas(lines, linksSection.startLine, linksSection.indent);
+  for (const stanza of stanzas) {
+    const stanzaText = lines.slice(stanza.start, stanza.end + 1).join('\n');
+    if (!linkStanzaMatches(stanzaText, sourceNode, targetNode)) continue;
 
-  const listItemIndent = linksIndent + 2;
-  const linkStanzas: { start: number; end: number; content: string }[] = [];
-  let currentStart = -1;
-
-  for (let i = linksStart + 1; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trimStart();
-    const indent = line.length - trimmed.length;
-
-    if (trimmed.length > 0 && indent <= linksIndent && !trimmed.startsWith('-')) {
-      if (currentStart !== -1) {
-        linkStanzas.push({ start: currentStart, end: i - 1, content: lines.slice(currentStart, i).join('\n') });
-      }
-      break;
-    }
-
-    if (trimmed.startsWith('- ') && indent === listItemIndent) {
-      if (currentStart !== -1) {
-        linkStanzas.push({ start: currentStart, end: i - 1, content: lines.slice(currentStart, i).join('\n') });
-      }
-      currentStart = i;
-    }
-  }
-
-  if (currentStart !== -1) {
-    linkStanzas.push({ start: currentStart, end: lines.length - 1, content: lines.slice(currentStart).join('\n') });
-  }
-
-  for (const stanza of linkStanzas) {
-    const isRegularLink = stanza.content.includes(`node: ${sourceNode}`) && stanza.content.includes(`node: ${targetNode}`);
-    const isSimLink = stanza.content.includes(`node: ${sourceNode}`) && stanza.content.includes(`simNode: ${targetNode}`);
-
-    if (isRegularLink || isSimLink) {
-      editorInstance.revealLineInCenter(stanza.start + 1);
-      editorInstance.setSelection({
-        startLineNumber: stanza.start + 1,
-        startColumn: 1,
-        endLineNumber: stanza.end + 1,
-        endColumn: lines[stanza.end].length + 1,
-      });
-      return;
-    }
+    editorInstance.revealLineInCenter(stanza.start + 1);
+    editorInstance.setSelection({
+      startLineNumber: stanza.start + 1,
+      startColumn: 1,
+      endLineNumber: stanza.end + 1,
+      endColumn: (lines[stanza.end] ?? '').length + 1,
+    });
+    return;
   }
 }
 
@@ -129,78 +195,43 @@ export function jumpToMemberLinkInEditor(edgeId: string, memberIndex: number): v
   const content = editorInstance.getValue();
   const lines = content.split('\n');
 
-  let foundEdgeId = false;
-  let foundMemberIndex = false;
-  let stanzaStart = -1;
+  const edgeIdKeys = [ANNOTATION_EDGE_ID, 'pos/edgeId'];
+  const memberIndexKeys = [ANNOTATION_MEMBER_INDEX, 'pos/memberIndex'];
+  const memberIndexString = String(memberIndex);
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
+    const trimmed = (lines[i] ?? '').trim();
+    if (!trimmed.startsWith('- name:')) continue;
 
-    if (trimmed.startsWith('- name:')) {
-      if (foundEdgeId && foundMemberIndex && stanzaStart !== -1) {
-        break;
-      }
-      foundEdgeId = false;
-      foundMemberIndex = false;
-      stanzaStart = i;
+    const stanza = getYamlListItemRange(lines, i);
+    const matchesEdgeId = stanzaHasAnyKeyValue(lines, stanza, edgeIdKeys, edgeId);
+    if (!matchesEdgeId) {
+      i = stanza.end;
+      continue;
     }
 
-    if (trimmed.startsWith('pos/edgeId:')) {
-      let value = trimmed.slice(11).trim();
-      if ((value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
-      }
-      if (value === edgeId) foundEdgeId = true;
+    const matchesMemberIndex = stanzaHasAnyKeyValue(lines, stanza, memberIndexKeys, memberIndexString);
+    if (!matchesMemberIndex) {
+      i = stanza.end;
+      continue;
     }
 
-    if (trimmed.startsWith('pos/memberIndex:')) {
-      let value = trimmed.slice(16).trim();
-      if ((value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
-      }
-      if (value === String(memberIndex)) foundMemberIndex = true;
-    }
-  }
-
-  if (foundEdgeId && foundMemberIndex && stanzaStart !== -1) {
-    const listItemIndent = lines[stanzaStart].length - lines[stanzaStart].trimStart().length;
-    let endLine = stanzaStart;
-
-    for (let j = stanzaStart + 1; j < lines.length; j++) {
-      const nextLine = lines[j];
-      const nextTrimmed = nextLine.trimStart();
-      const nextIndent = nextLine.length - nextTrimmed.length;
-
-      if (nextTrimmed.length === 0) {
-        endLine = j;
-        continue;
-      }
-
-      if (nextIndent <= listItemIndent) {
-        break;
-      }
-
-      endLine = j;
-    }
-
-    editorInstance.revealLineInCenter(stanzaStart + 1);
+    editorInstance.revealLineInCenter(stanza.start + 1);
     editorInstance.setSelection({
-      startLineNumber: stanzaStart + 1,
+      startLineNumber: stanza.start + 1,
       startColumn: 1,
-      endLineNumber: endLine + 1,
-      endColumn: lines[endLine].length + 1,
+      endLineNumber: stanza.end + 1,
+      endColumn: (lines[stanza.end] ?? '').length + 1,
     });
+    return;
   }
 }
 
 export default function YamlEditor() {
   const {
     topologyName, namespace, operation, nodes, edges,
-    nodeTemplates, linkTemplates, simulation,
-    importFromYaml, yamlRefreshCounter, darkMode,
+    nodeTemplates, linkTemplates, simulation, annotations,
+    importFromYaml, yamlRefreshCounter,
   } = useTopologyStore();
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -208,7 +239,7 @@ export default function YamlEditor() {
   const isRefreshingRef = useRef(false);
 
   const getYamlFromState = () => exportToYaml({
-    topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation,
+    topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations,
   });
 
   useEffect(() => {
@@ -220,7 +251,20 @@ export default function YamlEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yamlRefreshCounter]);
 
-  const handleEditorMount: OnMount = (editor) => {
+  const handleEditorMount: OnMount = (editor, monaco) => {
+    const themeName = 'ntwfui-dark';
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    monaco.editor.defineTheme(themeName, {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#1A222E',
+        'editorGutter.background': '#1A222E',
+      },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    monaco.editor.setTheme(themeName);
     editorRef.current = editor;
     editorInstance = editor;
   };
@@ -238,7 +282,7 @@ export default function YamlEditor() {
         <Editor
           height="100%"
           language="yaml"
-          theme={darkMode ? 'vs-dark' : 'light'}
+          theme="ntwfui-dark"
           defaultValue={getYamlFromState()}
           onMount={handleEditorMount}
           onChange={handleEditorChange}

@@ -32,4 +32,3 @@ export function topologyMemberLinkTestId(a: string, b: string, memberIndex: numb
 export function topologyLagTestId(a: string, b: string, lagName: string): string {
   return `topology-lag-${topologyEdgeKey(a, b)}-${sanitizeTestIdPart(lagName)}`;
 }
-

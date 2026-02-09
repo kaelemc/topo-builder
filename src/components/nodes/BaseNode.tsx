@@ -1,6 +1,8 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useMemo, useRef } from 'react';
 import { Handle, Position, useStore } from '@xyflow/react';
+
 import { useTopologyStore } from '../../lib/store';
+import { getNodeCenter, parseHandlePosition } from '../../lib/edgeUtils';
 
 export interface BaseNodeProps {
   nodeId: string;
@@ -11,6 +13,91 @@ export interface BaseNodeProps {
   testId?: string;
 }
 
+type NodeLike = { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } };
+type EdgeLike = { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null; data?: { esiLeaves?: Array<{ nodeId: string }> } };
+
+function getConnectedPosition(
+  thisNode: NodeLike,
+  otherNode: NodeLike,
+): Position {
+  const thisCenter = getNodeCenter(thisNode);
+  const otherCenter = getNodeCenter(otherNode);
+
+  const horizontalDiff = Math.abs(thisCenter.x - otherCenter.x);
+  const verticalDiff = Math.abs(thisCenter.y - otherCenter.y);
+
+  if (horizontalDiff > verticalDiff) {
+    return thisCenter.x > otherCenter.x ? Position.Left : Position.Right;
+  } else {
+    return thisCenter.y > otherCenter.y ? Position.Top : Position.Bottom;
+  }
+}
+
+function addEsiLagConnectedPositions(
+  positions: Set<Position>,
+  nodeId: string,
+  thisNode: NodeLike,
+  edge: EdgeLike,
+  nodesById: Map<string, NodeLike>,
+  esiLeaves: Array<{ nodeId: string }>,
+) {
+  // ESI-LAG edges connect the source node to many leaf nodes.
+  if (edge.source === nodeId) {
+    for (const leaf of esiLeaves) {
+      const leafNode = nodesById.get(leaf.nodeId);
+      if (leafNode) positions.add(getConnectedPosition(thisNode, leafNode));
+    }
+    return;
+  }
+
+  const leafIds = new Set(esiLeaves.map(l => l.nodeId));
+  if (!leafIds.has(nodeId)) return;
+
+  const sourceNode = nodesById.get(edge.source);
+  if (sourceNode) positions.add(getConnectedPosition(thisNode, sourceNode));
+}
+
+function addStandardConnectedPositions(
+  positions: Set<Position>,
+  nodeId: string,
+  thisNode: NodeLike,
+  edge: EdgeLike,
+  nodesById: Map<string, NodeLike>,
+) {
+  const isSource = edge.source === nodeId;
+  const isTarget = edge.target === nodeId;
+  if (!isSource && !isTarget) return;
+
+  const storedHandle = isSource ? edge.sourceHandle : edge.targetHandle;
+  if (storedHandle) {
+    positions.add(parseHandlePosition(storedHandle));
+    return;
+  }
+
+  const otherNodeId = isSource ? edge.target : edge.source;
+  const otherNode = nodesById.get(otherNodeId);
+  if (otherNode) positions.add(getConnectedPosition(thisNode, otherNode));
+}
+
+function computeConnectedPositions(nodeId: string, edges: EdgeLike[], nodes: NodeLike[]): Set<Position> {
+  const positions = new Set<Position>();
+
+  const nodesById = new Map(nodes.map(n => [n.id, n]));
+  const thisNode = nodesById.get(nodeId);
+  if (!thisNode) return positions;
+
+  for (const edge of edges) {
+    const esiLeaves = edge.data?.esiLeaves;
+    if (esiLeaves?.length) {
+      addEsiLagConnectedPositions(positions, nodeId, thisNode, edge, nodesById, esiLeaves);
+    } else {
+      addStandardConnectedPositions(positions, nodeId, thisNode, edge, nodesById);
+    }
+  }
+
+  return positions;
+}
+
 export default function BaseNode({
   nodeId,
   selected,
@@ -19,39 +106,23 @@ export default function BaseNode({
   className = '',
   testId,
 }: BaseNodeProps) {
-  const darkMode = useTopologyStore((state) => state.darkMode);
-  const edges = useTopologyStore((state) => state.edges);
+  const edges = useTopologyStore(state => state.edges);
+  const nodes = useTopologyStore(state => state.nodes);
 
-  const isConnecting = useStore((state) => state.connection.inProgress);
+  const isConnecting = useStore(state => state.connection.inProgress);
 
-  const connectedHandles = new Set<string>();
-  edges.forEach((edge) => {
-    if (edge.source === nodeId && edge.sourceHandle) {
-      connectedHandles.add(edge.sourceHandle);
-    }
-    if (edge.target === nodeId && edge.targetHandle) {
-      connectedHandles.add(edge.targetHandle);
-    }
-    const edgeData = edge.data as {
-      esiLeaves?: Array<{ nodeId: string; leafHandle: string; sourceHandle: string }>;
-    } | undefined;
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
 
-    if (edgeData?.esiLeaves) {
-      for (const leaf of edgeData.esiLeaves) {
-        if (leaf.nodeId === nodeId && leaf.leafHandle) {
-          connectedHandles.add(leaf.leafHandle);
-        }
-        if (edge.source === nodeId && leaf.sourceHandle) {
-          connectedHandles.add(leaf.sourceHandle);
-        }
-      }
-    }
-  });
+  const connectedPositions = useMemo(() => {
+    return computeConnectedPositions(nodeId, edges, nodesRef.current);
+
+  }, [edges, nodeId]);
 
   const alwaysShowAll = selected || isConnecting;
 
-  const getHandleClassName = (handleId: string) => {
-    const isConnected = connectedHandles.has(handleId);
+  const getHandleClassName = (position: Position) => {
+    const isConnected = connectedPositions.has(position);
     const baseClass = '!w-2.5 !h-2.5 !bg-(--color-handle-bg) !border !border-solid !border-(--color-node-border) transition-opacity duration-150';
 
     if (alwaysShowAll || isConnected) {
@@ -66,16 +137,16 @@ export default function BaseNode({
       data-testid={testId}
       className={`group relative w-20 h-20 bg-(--color-node-bg) border rounded-lg flex flex-col items-center justify-center gap-0.5 ${
         selected ? 'border-(--color-node-border-selected)' : 'border-(--color-node-border)'
-      } ${darkMode ? 'dark' : ''} ${className || 'border-solid'}`}
+      } ${className || 'border-solid'}`}
     >
-      <Handle type="source" position={Position.Top} id="top" className={getHandleClassName('top')} />
-      <Handle type="target" position={Position.Top} id="top-target" className={getHandleClassName('top-target')} />
-      <Handle type="source" position={Position.Bottom} id="bottom" className={getHandleClassName('bottom')} />
-      <Handle type="target" position={Position.Bottom} id="bottom-target" className={getHandleClassName('bottom-target')} />
-      <Handle type="source" position={Position.Left} id="left" className={getHandleClassName('left')} />
-      <Handle type="target" position={Position.Left} id="left-target" className={getHandleClassName('left-target')} />
-      <Handle type="source" position={Position.Right} id="right" className={getHandleClassName('right')} />
-      <Handle type="target" position={Position.Right} id="right-target" className={getHandleClassName('right-target')} />
+      <Handle type="source" position={Position.Top} id="top" className={getHandleClassName(Position.Top)} />
+      <Handle type="target" position={Position.Top} id="top-target" className="!opacity-0 !w-2.5 !h-2.5" />
+      <Handle type="source" position={Position.Right} id="right" className={getHandleClassName(Position.Right)} />
+      <Handle type="target" position={Position.Right} id="right-target" className="!opacity-0 !w-2.5 !h-2.5" />
+      <Handle type="source" position={Position.Bottom} id="bottom" className={getHandleClassName(Position.Bottom)} />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!opacity-0 !w-2.5 !h-2.5" />
+      <Handle type="source" position={Position.Left} id="left" className={getHandleClassName(Position.Left)} />
+      <Handle type="target" position={Position.Left} id="left-target" className="!opacity-0 !w-2.5 !h-2.5" />
 
       <div
         onDoubleClick={() => window.dispatchEvent(new CustomEvent('focusNodeName'))}

@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import yaml from 'js-yaml';
+
 import {
   topologyEdgeKey,
   topologyEdgeTestId,
@@ -8,6 +9,8 @@ import {
   topologyNodeTestId,
   topologySimNodeTestId,
 } from '../src/lib/testIds';
+
+import { canvasPane } from './utils';
 
 export const NODE1_POS = { x: 200, y: 300 };
 export const NODE2_POS = { x: 600, y: 300 };
@@ -50,12 +53,12 @@ export const lagByName = (page: Page, a: string, b: string, lagName: string) =>
   page.getByTestId(topologyLagTestId(a, b, lagName));
 
 export const selectEdgesByNames = async (page: Page, pairs: Array<[string, string]>) => {
-  await page.evaluate(async (edgePairs) => {
+  await page.evaluate(async edgePairs => {
     // @ts-expect-error - Vite serves source files at this path in dev mode
-    const mod = await import('/src/lib/store.ts');
+    const mod = await import('/src/lib/store/index.ts');
     const state = mod.useTopologyStore.getState();
     const edgeIds: string[] = [];
-    for (const [a, b] of edgePairs as Array<[string, string]>) {
+    for (const [a, b] of edgePairs) {
       const edge = state.edges.find((e: { data?: { sourceNode?: string; targetNode?: string } }) => {
         const src = e.data?.sourceNode;
         const dst = e.data?.targetNode;
@@ -113,3 +116,42 @@ export const pasteSelected = async (page: Page) => {
 export const openEdgeContextMenu = async (page: Page, sourceLabel: string, targetLabel: string) => {
   await clickEdgeBetween(page, sourceLabel, targetLabel, { button: 'right' });
 };
+
+export async function addTwoNodesAndConnect(page: Page): Promise<void> {
+  await addContextMenuItem(page, NODE1_POS, 'Add Node');
+  await addContextMenuItem(page, NODE2_POS, 'Add Node');
+  await connectNodes(page, 'leaf1', 'leaf2');
+  await page.waitForFunction(
+    () => document.querySelectorAll('.react-flow__edge').length === 1,
+  );
+}
+
+export async function createLocalLagBetween(page: Page, nodeA: string, nodeB: string): Promise<void> {
+  await clickEdgeBetween(page, nodeA, nodeB);
+  await openEdgeContextMenu(page, nodeA, nodeB);
+  await copySelected(page);
+  await openEdgeContextMenu(page, nodeA, nodeB);
+  await pasteSelected(page);
+
+  await page.waitForSelector('[title*="links - click to expand"]');
+  await page.getByTitle(/links - click to expand/i).click();
+
+  await memberLinkByIndex(page, nodeA, nodeB, 0).waitFor();
+  await memberLinkByIndex(page, nodeA, nodeB, 1).waitFor();
+
+  await memberLinkByIndex(page, nodeA, nodeB, 0).click();
+  await memberLinkByIndex(page, nodeA, nodeB, 1).click({ modifiers: ['Shift'] });
+
+  await memberLinkByIndex(page, nodeA, nodeB, 1).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Create Local LAG' }).click();
+}
+
+export async function undoViaContextMenu(page: Page): Promise<void> {
+  await canvasPane(page).click({ button: 'right', position: EMPTY_POS });
+  await page.getByRole('menuitem', { name: 'Undo' }).click();
+}
+
+export async function redoViaContextMenu(page: Page): Promise<void> {
+  await canvasPane(page).click({ button: 'right', position: EMPTY_POS });
+  await page.getByRole('menuitem', { name: 'Redo' }).click();
+}

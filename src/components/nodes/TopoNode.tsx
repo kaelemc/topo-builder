@@ -1,11 +1,13 @@
 import { type NodeProps } from '@xyflow/react';
-import type { TopologyNodeData } from '../../types/topology';
+
+import type { UINodeData } from '../../types/ui';
 import { useTopologyStore } from '../../lib/store';
-import BaseNode from './BaseNode';
 import spineIcon from '../../static/icons/spine.svg?raw';
 import leafIcon from '../../static/icons/leaf.svg?raw';
 import superspineIcon from '../../static/icons/superspine.svg?raw';
 import { topologyNodeTestId } from '../../lib/testIds';
+
+import BaseNode from './BaseNode';
 
 const RoleIcons: Record<string, string> = {
   spine: spineIcon,
@@ -14,15 +16,15 @@ const RoleIcons: Record<string, string> = {
   superspine: superspineIcon,
 };
 
-export default function DeviceNode({ id, data, selected }: NodeProps) {
-  const nodeData = data as TopologyNodeData;
-  const nodeTemplates = useTopologyStore((state) => state.nodeTemplates);
+export default function TopoNode({ id, data, selected }: NodeProps) {
+  const nodeData = data as UINodeData;
+  const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
 
   const template = nodeData.template ? nodeTemplates.find(t => t.name === nodeData.template) : null;
   const role = nodeData.role
     || nodeData.labels?.['eda.nokia.com/role']
     || template?.labels?.['eda.nokia.com/role'];
-  const iconSvg = role ? RoleIcons[role as string] : null;
+  const iconSvg = role ? RoleIcons[role] : null;
 
   return (
     <BaseNode

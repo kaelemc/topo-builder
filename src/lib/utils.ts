@@ -1,5 +1,6 @@
-const NAME_REGEX = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
-const NAME_MAX_LENGTH = 63;
+import type { UIEdge, UILagGroup, UIEsiLeaf, UIMemberLink, SelectionState } from '../types/ui';
+
+import { NAME_MAX_LENGTH, NAME_REGEX, ESI_LAG_MIN_EDGES, ESI_LAG_MAX_EDGES } from './constants';
 
 export const isValidName = (name: string): boolean => {
   if (!name || name.length > NAME_MAX_LENGTH) return false;
@@ -16,18 +17,64 @@ export const getNameError = (name: string): string | null => {
   return null;
 };
 
-export const validateName = (
+export const validateNodeName = (
   name: string,
   existingNames: string[],
-  entityType: 'node' | 'simNode' | 'link' | 'template' = 'node'
 ): string | null => {
   const nameError = getNameError(name);
   if (nameError) return nameError;
+  if (existingNames.includes(name)) {
+    return `Node name "${name}" already exists`;
+  }
+  return null;
+};
 
+export const validateLinkName = (
+  name: string,
+  existingNames: string[],
+): string | null => {
+  const nameError = getNameError(name);
+  if (nameError) return nameError;
+  if (existingNames.includes(name)) {
+    return `Link name "${name}" already exists`;
+  }
+  return null;
+};
+
+export const validateSimNodeName = (
+  name: string,
+  existingNames: string[],
+): string | null => {
+  const nameError = getNameError(name);
+  if (nameError) return nameError;
+  if (existingNames.includes(name)) {
+    return `SimNode name "${name}" already exists`;
+  }
+  return null;
+};
+
+export const validateTemplateName = (
+  name: string,
+  existingNames: string[],
+): string | null => {
+  const nameError = getNameError(name);
+  if (nameError) return nameError;
+  if (existingNames.includes(name)) {
+    return `Template name "${name}" already exists`;
+  }
+  return null;
+};
+
+export const validateName = (
+  name: string,
+  existingNames: string[],
+  entityType: 'node' | 'simNode' | 'link' | 'template' = 'node',
+): string | null => {
+  const nameError = getNameError(name);
+  if (nameError) return nameError;
   if (existingNames.includes(name)) {
     return `${entityType === 'simNode' ? 'SimNode' : entityType.charAt(0).toUpperCase() + entityType.slice(1)} name "${name}" already exists`;
   }
-
   return null;
 };
 
@@ -54,53 +101,154 @@ export const generateCopyName = (originalName: string, existingNames: string[]):
 
 export const formatName = (value: string): string => value.replace(/\s+/g, '-').toLowerCase();
 
-export interface ParsedEndpoint {
-  sourceName: string;
-  targetName: string | null;
-  sourceInterface: string;
-  targetInterface: string | null;
-}
+export const ROLE_ICONS: Record<string, string> = {
+  spine: 'spine',
+  leaf: 'leaf',
+  borderleaf: 'leaf',
+  superspine: 'superspine',
+};
 
-export interface YamlEndpoint {
-  local?: { node: string; interface?: string };
-  remote?: { node: string; interface?: string };
-  sim?: { simNode?: string; simNodeInterface?: string; node?: string; interface?: string };
-  type?: string;
-}
+export const getNodeRole = (
+  nodeData: { role?: string; labels?: Record<string, string> },
+  templateLabels?: Record<string, string>,
+): string | undefined => {
+  return nodeData.role
+    || nodeData.labels?.['eda.nokia.com/role']
+    || templateLabels?.['eda.nokia.com/role'];
+};
 
-export function parseYamlEndpoint(ep: YamlEndpoint, defaultInterface: string, defaultSimInterface: string): ParsedEndpoint | null {
-  if (ep.local?.node && ep.remote?.node) {
-    return {
-      sourceName: ep.local.node,
-      targetName: ep.remote.node,
-      sourceInterface: ep.local.interface || defaultInterface,
-      targetInterface: ep.remote.interface || defaultInterface,
-    };
-  }
-  if (ep.local?.node && (ep.sim?.simNode || ep.sim?.node)) {
-    const simName = ep.sim!.simNode || ep.sim!.node;
-    return {
-      sourceName: simName!,
-      targetName: ep.local.node,
-      sourceInterface: ep.sim?.simNodeInterface || ep.sim?.interface || defaultSimInterface,
-      targetInterface: ep.local.interface || defaultInterface,
-    };
-  }
-  if (ep.local?.node) {
-    return {
-      sourceName: ep.local.node,
-      targetName: null,
-      sourceInterface: ep.local.interface || defaultInterface,
-      targetInterface: null,
-    };
-  }
-  return null;
-}
+export const extractPortNumber = (iface: string): number => {
+  const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
+  if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
+  const ethMatch = iface.match(/eth(\d+)/);
+  if (ethMatch) return parseInt(ethMatch[1], 10);
+  return 0;
+};
 
-export function filterUserLabels(labels?: Record<string, string>): Record<string, string> | undefined {
-  if (!labels) return undefined;
-  const filtered = Object.fromEntries(
-    Object.entries(labels).filter(([k]) => !k.startsWith('topobuilder.eda.labs/'))
+export const getNextPortNumber = (
+  nodeId: string,
+  edges: UIEdge[],
+  _isSimNode: boolean = false,
+): number => {
+  const portNumbers = edges.flatMap(e => {
+    if (e.source === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
+    if (e.target === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
+    return [];
+  });
+  return Math.max(0, ...portNumbers) + 1;
+};
+
+export const generateInterfaceName = (portNumber: number, isSimNode: boolean): string => {
+  return isSimNode ? `eth${portNumber}` : `ethernet-1-${portNumber}`;
+};
+
+export const incrementInterface = (iface: string, fallbackIndex: number): string => {
+  const match = iface.match(/^(.+?)(\d+)$/);
+  return match ? `${match[1]}${parseInt(match[2], 10) + 1}` : `${iface}-${fallbackIndex}`;
+};
+
+export const generateLagName = (
+  targetNode: string,
+  sourceNode: string,
+  lagCount: number,
+): string => {
+  return `${targetNode}-${sourceNode}-lag-${lagCount}`;
+};
+
+export const generateLagId = (edgeId: string, lagCount: number): string => {
+  return `lag-${edgeId}-${lagCount}`;
+};
+
+export const indicesInExistingLag = (
+  indices: number[],
+  lagGroups: UILagGroup[],
+): boolean => {
+  return lagGroups.some(lag =>
+    indices.some(idx => lag.memberLinkIndices.includes(idx)),
   );
-  return Object.keys(filtered).length > 0 ? filtered : undefined;
-}
+};
+
+export const getIndicesInLags = (lagGroups: UILagGroup[]): Set<number> => {
+  const indices = new Set<number>();
+  for (const lag of lagGroups) {
+    for (const idx of lag.memberLinkIndices) {
+      indices.add(idx);
+    }
+  }
+  return indices;
+};
+
+export const createLagGroup = (
+  edgeId: string,
+  lagCount: number,
+  targetNode: string,
+  sourceNode: string,
+  memberLinkIndices: number[],
+  firstMemberLink?: UIMemberLink,
+): UILagGroup => {
+  return {
+    id: generateLagId(edgeId, lagCount),
+    name: generateLagName(targetNode, sourceNode, lagCount),
+    template: firstMemberLink?.template,
+    memberLinkIndices,
+  };
+};
+
+export const findCommonNode = (
+  edgeNodes: Array<{ source: string; target: string }>,
+): string | null => {
+  const allNodes = edgeNodes.flatMap(e => [e.source, e.target]);
+  const nodeCounts = new Map<string, number>();
+  allNodes.forEach(n => nodeCounts.set(n, (nodeCounts.get(n) || 0) + 1));
+  const commonNodeEntries = [...nodeCounts.entries()]
+    .filter(([_, count]) => count === edgeNodes.length);
+  if (commonNodeEntries.length !== 1) return null;
+  return commonNodeEntries[0][0];
+};
+
+export const validateEsiLagEdges = (edgeCount: number): string | null => {
+  if (edgeCount < ESI_LAG_MIN_EDGES) return `ESI-LAG requires at least ${ESI_LAG_MIN_EDGES} edges`;
+  if (edgeCount > ESI_LAG_MAX_EDGES) return `ESI-LAG cannot have more than ${ESI_LAG_MAX_EDGES} edges`;
+  return null;
+};
+
+export const createEsiLeaf = (
+  nodeId: string,
+  nodeName: string,
+): UIEsiLeaf => {
+  return { nodeId, nodeName };
+};
+
+export const generateEsiLagName = (commonNodeName: string, count: number): string => {
+  return `${commonNodeName}-esi-lag-${count}`;
+};
+
+export const EMPTY_STRING_SET: Set<string> = new Set<string>();
+
+export const createEmptySelectionState = (): SelectionState => ({
+  selectedNodeId: null,
+  selectedNodeIds: [],
+  selectedEdgeId: null,
+  selectedEdgeIds: [],
+  selectedSimNodeName: null,
+  selectedSimNodeNames: new Set<string>(),
+  selectedMemberLinkIndices: [],
+  selectedLagId: null,
+});
+
+export const clearAllSelections = (): SelectionState => createEmptySelectionState();
+
+export const toggleInArray = <T>(array: T[], value: T): T[] => {
+  return array.includes(value)
+    ? array.filter(v => v !== value)
+    : [...array, value];
+};
+
+export const toggleMemberLinkIndex = (
+  currentIndices: number[],
+  index: number,
+): number[] => {
+  return currentIndices.includes(index)
+    ? currentIndices.filter(i => i !== index)
+    : [...currentIndices, index].sort((a, b) => a - b);
+};

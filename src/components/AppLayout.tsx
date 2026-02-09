@@ -21,44 +21,56 @@ import {
   createTheme,
   Snackbar,
   Link,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Divider,
 } from '@mui/material';
 import {
   ContentCopy as CopyIcon,
   Download as DownloadIcon,
-  PlayArrow as ValidateIcon,
+  Check as ValidateIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
-  DarkMode as DarkModeIcon,
-  LightMode as LightModeIcon,
   Terminal as TerminalIcon,
-  PhotoCameraOutlined as PhotoCameraIcon,
+  PhotoCameraBack as PhotoCameraIcon,
   Info,
+  Settings as SettingsIcon,
+  Hub as AutoLinkIcon,
 } from '@mui/icons-material';
 import { toSvg } from 'html-to-image';
-import { getNodesBounds } from '@xyflow/react';
+
 import { useTopologyStore } from '../lib/store';
-import { exportToYaml, downloadYaml } from '../lib/converter';
-import { validateNetworkTopology, type ValidationResult } from '../lib/validate';
+import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
+import { validateNetworkTopology } from '../lib/validate';
+import type { ValidationResult } from '../types/ui';
+import type { Operation } from '../types/schema';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
+
+import { getEditorContent } from './YamlEditor';
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const darkMode = useTopologyStore((state) => state.darkMode);
-  const setDarkMode = useTopologyStore((state) => state.setDarkMode);
-
   const theme = useMemo(() => createTheme({
     cssVariables: true,
     palette: {
-      mode: darkMode ? 'dark' : 'light',
-      primary: { main: '#7d33f2', light: '#9a5ff5', dark: '#5c1fd4' },
-      card: {
-        bg: darkMode ? '#262626' : '#f5f5f5',
-        border: darkMode ? '#424242' : '#e0e0e0',
-      },
+      mode: 'dark',
+      primary: { main: '#6098FF' },
+      error: { main: '#FF6363' },
+      warning: { main: '#FFAC0A' },
+      success: { main: '#00A87E' },
+      info: { main: '#90B7FF' },
+      background: { default: '#1A222E', paper: '#101824' },
+      text: { primary: '#ffffff', secondary: '#C9CED6' },
+      divider: '#4A5361B2',
+      card: { bg: '#101824', border: '#4A5361B2' },
     },
+    shape: { borderRadius: 4 },
     typography: {
       fontFamily: '"NokiaPureText", "Roboto", "Helvetica", "Arial", sans-serif',
     },
@@ -72,53 +84,66 @@ export default function AppLayout({ children }: AppLayoutProps) {
         },
       },
     },
-  }), [darkMode]);
+  }), []);
 
-  const topologyName = useTopologyStore((state) => state.topologyName);
-  const namespace = useTopologyStore((state) => state.namespace);
-  const operation = useTopologyStore((state) => state.operation);
-  const nodes = useTopologyStore((state) => state.nodes);
-  const edges = useTopologyStore((state) => state.edges);
-  const nodeTemplates = useTopologyStore((state) => state.nodeTemplates);
-  const linkTemplates = useTopologyStore((state) => state.linkTemplates);
-  const simulation = useTopologyStore((state) => state.simulation);
-  const error = useTopologyStore((state) => state.error);
-  const setError = useTopologyStore((state) => state.setError);
+  const topologyName = useTopologyStore(state => state.topologyName);
+  const namespace = useTopologyStore(state => state.namespace);
+  const operation = useTopologyStore(state => state.operation);
+  const nodes = useTopologyStore(state => state.nodes);
+  const edges = useTopologyStore(state => state.edges);
+  const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
+  const linkTemplates = useTopologyStore(state => state.linkTemplates);
+  const simulation = useTopologyStore(state => state.simulation);
+  const annotations = useTopologyStore(state => state.annotations);
+  const setTopologyName = useTopologyStore(state => state.setTopologyName);
+  const setNamespace = useTopologyStore(state => state.setNamespace);
+  const setOperation = useTopologyStore(state => state.setOperation);
+  const error = useTopologyStore(state => state.error);
+  const setError = useTopologyStore(state => state.setError);
+  const autoLink = useTopologyStore(state => state.autoLink);
 
   const [copied, setCopied] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [displayedError, setDisplayedError] = useState<string | null>(null);
   const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [localName, setLocalName] = useState(topologyName);
+  const [localNamespace, setLocalNamespace] = useState(namespace);
+  const [localOperation, setLocalOperation] = useState(operation);
 
   useEffect(() => {
     if (error) {
       setDisplayedError(error);
     }
   }, [error]);
-  
-  const getYaml = (withTimestamp = false) => exportToYaml({
-    topologyName: withTimestamp ? `${topologyName}-${Date.now()}` : topologyName,
-    namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation,
+
+  const getExportYaml = () => exportToYaml({
+    topologyName: `${topologyName}-${Date.now()}`,
+    namespace, operation, nodes: normalizeNodeCoordinates(nodes), edges, nodeTemplates, linkTemplates, simulation, annotations,
   });
 
-  const handleDownload = () => downloadYaml(getYaml(true), `${topologyName}-${Date.now()}.yaml`);
+  const handleDownload = () => {
+    const yaml = getExportYaml();
+    downloadYaml(yaml, `${topologyName}-${Date.now()}.yaml`);
+  };
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(getYaml(true));
+    await navigator.clipboard.writeText(getExportYaml());
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => { setCopied(false); }, 2000);
   };
 
   const handleCopyKubectl = async () => {
-    await navigator.clipboard.writeText(`kubectl apply -f - <<'EOF'\n${getYaml(true)}\nEOF`);
+    await navigator.clipboard.writeText(`kubectl apply -f - <<'EOF'\n${getExportYaml()}\nEOF`);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => { setCopied(false); }, 2000);
   };
 
   const handleValidate = () => {
-    const yamlToValidate = getYaml();
-    setValidationResult(validateNetworkTopology(yamlToValidate));
+    const yaml = getEditorContent()
+      || exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations });
+    setValidationResult(validateNetworkTopology(yaml));
     setValidationDialogOpen(true);
   };
 
@@ -129,19 +154,48 @@ export default function AppLayout({ children }: AppLayoutProps) {
       return;
     }
 
+    if (nodes.length === 0) {
+      setError('No nodes to export');
+      return;
+    }
+
     const padding = 100;
-    const nodesBounds = getNodesBounds(nodes);
-    const imageWidth = Math.max(nodesBounds.width + padding * 2, 400);
-    const imageHeight = Math.max(nodesBounds.height + padding * 2, 400);
+    const nodeW = 80;
+    const nodeH = 80;
+    const rects = nodes.map(n => ({
+      x: n.position?.x ?? 0,
+      y: n.position?.y ?? 0,
+      w: nodeW,
+      h: nodeH,
+    }));
+    for (const ann of annotations) {
+      const x = ann.position.x;
+      const y = ann.position.y;
+      const w = ann.type === 'shape' ? ann.width : 200;
+      const h = ann.type === 'shape' ? ann.height : ann.fontSize * 2;
+      rects.push({ x, y, w, h });
+    }
+    const minX = Math.min(...rects.map(r => r.x));
+    const minY = Math.min(...rects.map(r => r.y));
+    const maxX = Math.max(...rects.map(r => r.x + r.w));
+    const maxY = Math.max(...rects.map(r => r.y + r.h));
+    const boundsW = maxX - minX;
+    const boundsH = maxY - minY;
+    const imageWidth = Math.max(boundsW + padding * 2, 400);
+    const imageHeight = Math.max(boundsH + padding * 2, 400);
 
     try {
       const dataUrl = await toSvg(viewport, {
         width: imageWidth,
         height: imageHeight,
+        fontEmbedCSS: [
+          "@font-face { font-family: 'NokiaPureText'; src: url('https://cdn.jsdelivr.net/gh/hellt/fonts@v0.1.0/nokia/NokiaPureText_Lt.woff2') format('woff2'); font-weight: normal; font-style: normal; }",
+          "@font-face { font-family: 'NokiaPureText'; src: url('https://cdn.jsdelivr.net/gh/hellt/fonts@v0.1.0/nokia/NokiaPureText_Bd.woff2') format('woff2'); font-weight: bold; font-style: normal; }",
+        ].join('\n'),
         style: {
           width: `${imageWidth}px`,
           height: `${imageHeight}px`,
-          transform: `translate(${-nodesBounds.x + padding}px, ${-nodesBounds.y + padding}px) scale(1)`,
+          transform: `translate(${-minX + padding}px, ${-minY + padding}px) scale(1)`,
         },
       });
       const link = document.createElement('a');
@@ -150,7 +204,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch {
+    } catch (err) {
+      console.error('SVG export failed:', err);
       setError('Failed to export SVG');
     }
   };
@@ -159,7 +214,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
-        <AppBar position="static" elevation={1} sx={{ bgcolor: 'var(--color-primary)' }}>
+        <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
           <Toolbar variant="dense">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
               <img src="/eda.svg" alt="EDA" style={{ height: 28 }} />
@@ -174,13 +229,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <ValidateIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
+              <Tooltip title="AutoLink">
+                <IconButton size="small" onClick={autoLink} sx={{ color: 'white' }}>
+                  <AutoLinkIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               <Tooltip title={copied ? 'Copied!' : 'Copy YAML'}>
-                <IconButton size="small" onClick={handleCopy} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleCopy(); }} sx={{ color: 'white' }}>
                   <CopyIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Copy as kubectl apply">
-                <IconButton size="small" onClick={handleCopyKubectl} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleCopyKubectl(); }} sx={{ color: 'white' }}>
                   <TerminalIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -189,18 +251,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Save as SVG">
-                <IconButton size="small" onClick={handleExportSvg} sx={{ color: 'white' }}>
+              <Tooltip title="Export SVG">
+                <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: 'white' }}>
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title={darkMode ? 'Light mode' : 'Dark mode'}>
-                <IconButton size="small" onClick={() => setDarkMode(!darkMode)} sx={{ color: 'white' }}>
-                  {darkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
+              <Tooltip title="Settings">
+                <IconButton size="small" onClick={() => { setLocalName(topologyName); setLocalNamespace(namespace); setLocalOperation(operation); setSettingsOpen(true); }} sx={{ color: 'white' }}>
+                  <SettingsIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="About">
-                <IconButton size="small" onClick={() => setAboutDialogOpen(true)} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { setAboutDialogOpen(true); }} sx={{ color: 'white' }}>
                   <Info fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -210,7 +273,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
         {children}
 
-        <Dialog open={validationDialogOpen} onClose={() => setValidationDialogOpen(false)} maxWidth="sm" fullWidth>
+        <Dialog open={validationDialogOpen} onClose={() => { setValidationDialogOpen(false); }} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {validationResult?.valid ? <SuccessIcon color="success" /> : <ErrorIcon color="error" />}
             {validationResult?.valid ? 'Validation Passed' : 'Validation Failed'}
@@ -239,11 +302,55 @@ export default function AppLayout({ children }: AppLayoutProps) {
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setValidationDialogOpen(false)}>Close</Button>
+            <Button onClick={() => { setValidationDialogOpen(false); }}>Close</Button>
           </DialogActions>
         </Dialog>
 
-        <Dialog open={aboutDialogOpen} onClose={() => setAboutDialogOpen(false)} maxWidth="xs" fullWidth>
+        <Dialog open={settingsOpen} onClose={() => { setSettingsOpen(false); }} maxWidth="xs" fullWidth>
+          <DialogTitle>Settings</DialogTitle>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Topology Name"
+              size="small"
+              value={localName}
+              onChange={e => { setLocalName(e.target.value); }}
+              fullWidth
+              sx={{ mt: 1 }}
+            />
+            <TextField
+              label="Namespace"
+              size="small"
+              value={localNamespace}
+              onChange={e => { setLocalNamespace(e.target.value); }}
+              fullWidth
+            />
+            <FormControl size="small" fullWidth>
+              <InputLabel>Operation</InputLabel>
+              <Select
+                label="Operation"
+                value={localOperation}
+                onChange={e => { setLocalOperation(e.target.value as Operation); }}
+              >
+                <MenuItem value="create">create</MenuItem>
+                <MenuItem value="replace">replace</MenuItem>
+                <MenuItem value="replaceAll">replaceAll</MenuItem>
+                <MenuItem value="delete">delete</MenuItem>
+                <MenuItem value="deleteAll">deleteAll</MenuItem>
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button variant="contained" onClick={() => {
+              setTopologyName(localName);
+              setNamespace(localNamespace);
+              setOperation(localOperation);
+              setSettingsOpen(false);
+            }}>Save</Button>
+            <Button onClick={() => { setSettingsOpen(false); }}>Cancel</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={aboutDialogOpen} onClose={() => { setAboutDialogOpen(false); }} maxWidth="xs" fullWidth>
           <DialogTitle>{TITLE} <Typography component="span" variant="caption" color="textSecondary" sx={{ fontFamily: 'monospace' }}>({__COMMIT_SHA__})</Typography></DialogTitle>
           <DialogContent sx={{ pb: 0 }}>
             <Container sx={{ textAlign: 'center' }}>
@@ -273,17 +380,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </Container>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setAboutDialogOpen(false)}>Close</Button>
+            <Button onClick={() => { setAboutDialogOpen(false); }}>Close</Button>
           </DialogActions>
         </Dialog>
 
         <Snackbar
           open={!!error}
           autoHideDuration={ERROR_DISPLAY_DURATION_MS}
-          onClose={(_, reason) => reason !== 'clickaway' && setError(null)}
+          onClose={(_, reason) => { if (reason !== 'clickaway') setError(null); }}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          <Alert onClose={() => setError(null)} severity="error" variant="filled">{displayedError}</Alert>
+          <Alert onClose={() => { setError(null); }} severity="error" variant="filled">{displayedError}</Alert>
         </Snackbar>
       </Box>
     </ThemeProvider>

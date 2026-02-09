@@ -1,7 +1,9 @@
-import { getBezierPath, EdgeLabelRenderer, Position } from '@xyflow/react';
+import type { Position } from '@xyflow/react';
+import { getBezierPath, EdgeLabelRenderer } from '@xyflow/react';
 import { Bezier } from 'bezier-js';
 import { Chip } from '@mui/material';
-import { getControlPoint } from './edgeUtils';
+
+import { getControlPoint } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 
 interface StandardEdgeProps {
@@ -14,6 +16,7 @@ interface StandardEdgeProps {
   targetPosition: Position;
   isSelected: boolean;
   isSimNodeEdge: boolean;
+  isConnectedToSelectedNode?: boolean;
   linkCount: number;
   onDoubleClick?: () => void;
 }
@@ -28,6 +31,7 @@ export default function StandardEdge({
   targetPosition,
   isSelected,
   isSimNodeEdge,
+  isConnectedToSelectedNode,
   linkCount,
   onDoubleClick,
 }: StandardEdgeProps) {
@@ -44,7 +48,7 @@ export default function StandardEdge({
       sourceX, sourceY,
       c1.x, c1.y,
       c2.x, c2.y,
-      targetX, targetY
+      targetX, targetY,
     );
     edgePath = bezier.toSVG();
     const mid = bezier.get(0.5);
@@ -68,6 +72,14 @@ export default function StandardEdge({
     onDoubleClick?.();
   };
 
+  let strokeColor = 'var(--color-link-stroke)';
+  if (isConnectedToSelectedNode) {
+    strokeColor = 'var(--color-link-stroke-highlight)';
+  }
+  if (isSelected) {
+    strokeColor = 'var(--color-link-stroke-selected)';
+  }
+
   return (
     <>
       <g
@@ -85,7 +97,7 @@ export default function StandardEdge({
         <path
           d={edgePath}
           fill="none"
-          stroke={isSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
+          stroke={strokeColor}
           strokeWidth={1}
           strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
         />
@@ -98,7 +110,7 @@ export default function StandardEdge({
               transform: `translate(-50%, -50%) translate(${edgeMidpoint.x}px, ${edgeMidpoint.y}px)`,
               pointerEvents: 'all',
             }}
-            onClick={(e) => { e.stopPropagation(); onDoubleClick?.(); }}
+            onClick={e => { e.stopPropagation(); onDoubleClick?.(); }}
           >
             <Chip
               label={linkCount}
