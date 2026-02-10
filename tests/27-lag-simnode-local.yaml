@@ -72,5 +72,5 @@ spec:
       - name: testman1
         template: testman
         annotations:
-          topobuilder.eda.labs/x: "420"
-          topobuilder.eda.labs/y: "120"
+          topobuilder.eda.labs/x: "255"
+          topobuilder.eda.labs/y: "225"
