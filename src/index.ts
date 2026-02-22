@@ -17,6 +17,8 @@ export {
   jumpToSimNodeInEditor,
   jumpToMemberLinkInEditor,
 } from './components/YamlEditor';
+export { default as FabricEditor } from './components/FabricEditor';
+export { fabricToTopology, type FabricDefinition, type FabricTierDef } from './lib/fabricToTopology';
 
 export {
   SelectionPanel,

@@ -227,7 +227,7 @@ export function jumpToMemberLinkInEditor(edgeId: string, memberIndex: number): v
   }
 }
 
-export default function YamlEditor() {
+export default function YamlEditor({ readOnly = false }: { readOnly?: boolean } = {}) {
   const {
     topologyName, namespace, operation, nodes, edges,
     nodeTemplates, linkTemplates, simulation, annotations,
@@ -285,7 +285,7 @@ export default function YamlEditor() {
           theme="ntwfui-dark"
           defaultValue={getYamlFromState()}
           onMount={handleEditorMount}
-          onChange={handleEditorChange}
+          onChange={readOnly ? undefined : handleEditorChange}
           options={{
             minimap: { enabled: false },
             fontSize: 13,
@@ -297,6 +297,8 @@ export default function YamlEditor() {
             renderLineHighlight: 'all',
             tabSize: 2,
             scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+            readOnly,
+            domReadOnly: readOnly,
           }}
         />
       </Box>

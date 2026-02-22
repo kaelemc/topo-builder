@@ -35,6 +35,7 @@ import { TopoNode, SimNode, TextAnnotation, ShapeAnnotation } from './nodes';
 import { LinkEdge } from './edges';
 import AppLayout, { type TopologyThemingProps } from './AppLayout';
 import YamlEditor, { jumpToNodeInEditor, jumpToLinkInEditor, jumpToSimNodeInEditor, jumpToMemberLinkInEditor } from './YamlEditor';
+import FabricEditor from './FabricEditor';
 import { SelectionPanel, NodeTemplatesPanel, LinkTemplatesPanel, SimNodeTemplatesPanel } from './PropertiesPanel';
 import ContextMenu from './ContextMenu';
 
@@ -99,7 +100,7 @@ function getMemberLinkJumpTarget({
   edges: Edge<UIEdgeData>[];
   expandedEdges: Set<string>;
 }): { edgeId: string; memberIndex: number } | null {
-  if (activeTab !== 0) return null;
+  if (activeTab !== 1) return null;
   if (!selectedEdgeId) return null;
   if (selectedMemberLinkIndices.length === 0) return null;
 
@@ -504,18 +505,20 @@ function SidePanel({
           variant="scrollable"
           scrollButtons="auto"
         >
+          <Tab label="Fabric" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
           <Tab label="YAML" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
           <Tab label="Edit" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
           <Tab label="Node Templates" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
           <Tab label="Link Templates" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
           <Tab label="Sim Templates" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
         </Tabs>
-        <Box sx={{ flex: 1, overflow: 'auto', p: activeTab === 0 ? 0 : 1.5, bgcolor: contentBg }}>
-          {activeTab === 0 && (renderYamlPanel ? renderYamlPanel() : <YamlEditor />)}
-          {activeTab === 1 && <SelectionPanel />}
-          {activeTab === 2 && <NodeTemplatesPanel />}
-          {activeTab === 3 && <LinkTemplatesPanel />}
-          {activeTab === 4 && <SimNodeTemplatesPanel />}
+        <Box sx={{ flex: 1, overflow: 'auto', p: activeTab <= 1 ? 0 : 1.5, bgcolor: contentBg }}>
+          {activeTab === 0 && <FabricEditor />}
+          {activeTab === 1 && (renderYamlPanel ? renderYamlPanel() : <YamlEditor readOnly />)}
+          {activeTab === 2 && <SelectionPanel />}
+          {activeTab === 3 && <NodeTemplatesPanel />}
+          {activeTab === 4 && <LinkTemplatesPanel />}
+          {activeTab === 5 && <SimNodeTemplatesPanel />}
         </Box>
       </Drawer>
     </>
@@ -670,13 +673,13 @@ function TopologyEditorInner({
   useEffect(() => {
     const newLinkId = sessionStorage.getItem(SESSION_NEW_LINK_ID);
     if (newLinkId && selectedEdgeId === newLinkId) {
-      setActiveTab(1);
+      setActiveTab(2);
     }
   }, [selectedEdgeId]);
 
   useEffect(() => {
     if (selectedNodeId || selectedEdgeId || selectedSimNodeName || selectedAnnotationId) {
-      setActiveTab(1);
+      setActiveTab(2);
     }
   }, [selectedNodeId, selectedEdgeId, selectedSimNodeName, selectedAnnotationId]);
 
@@ -913,11 +916,11 @@ function TopologyEditorInner({
       selectNode(null);
       selectEdge(null);
       selectSimNode(null);
-      setActiveTab(1);
+      setActiveTab(2);
       return;
     }
     selectAnnotation(null);
-    if (activeTab === 0) {
+    if (activeTab === 1) {
       const nodeData = node.data as UINodeData;
       if (node.type === 'simNode') {
         jumpToSimNodeInEditor(nodeData.name);
@@ -928,7 +931,7 @@ function TopologyEditorInner({
   }, [activeTab, selectAnnotation, selectNode, selectEdge, selectSimNode]);
 
   const handleEdgeClick = useCallback((_event: React.MouseEvent, edge: Edge<UIEdgeData>) => {
-    if (activeTab === 0 && edge.data && (edge.data.memberLinks?.length || 0) === 1) {
+    if (activeTab === 1 && edge.data && (edge.data.memberLinks?.length || 0) === 1) {
       jumpToLinkInEditor(edge.data.sourceNode, edge.data.targetNode);
     }
   }, [activeTab]);
@@ -1168,20 +1171,17 @@ function TopologyEditorInner({
             edges={visibleEdges}
             onNodesChange={handleNodesChange}
             onEdgesChange={onEdgesChange}
-            onConnect={handleConnect}
             onPaneClick={handlePaneClick}
             onNodeClick={handleNodeClick}
             onEdgeClick={handleEdgeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeDoubleClick={handleEdgeDoubleClick}
-            onPaneContextMenu={handlePaneContextMenu}
-            onNodeContextMenu={handleNodeContextMenu}
-            onEdgeContextMenu={handleEdgeContextMenu}
             onMoveStart={handleMoveStart}
-            onNodeDragStart={handleNodeDragStart}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            nodesDraggable
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable
             nodeDragThreshold={2}
             elevateNodesOnSelect={false}
             fitView
@@ -1211,7 +1211,7 @@ function TopologyEditorInner({
 
         <SidePanel
           activeTab={activeTab}
-          onTabChange={(tab: number) => { setActiveTab(tab); if (tab === 0) triggerYamlRefresh(); }}
+          onTabChange={(tab: number) => { setActiveTab(tab); if (tab === 1) triggerYamlRefresh(); }}
           open={panelOpen}
           onToggle={() => { setPanelOpen(!panelOpen); }}
           renderYamlPanel={renderYamlPanel}

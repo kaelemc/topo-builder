@@ -40,6 +40,8 @@ import {
   createAnnotationSlice,
   setAnnotationIdCounter,
   type AnnotationSlice,
+  createFabricSlice,
+  type FabricSlice,
 } from './slices';
 import {
   captureState,
@@ -118,7 +120,8 @@ export type TopologyStore =
   & SimNodeSlice
   & TemplateSlice
   & SelectionSlice
-  & AnnotationSlice;
+  & AnnotationSlice
+  & FabricSlice;
 
 // Parse base template from YAML file
 function parseBaseTemplate(): Partial<UIState> {
@@ -644,6 +647,7 @@ export const createTopologyStore = () => {
           ...createTemplateSlice(set as any, get as any, api as any),
           ...createSelectionSlice(set as any, get as any, api as any),
           ...createAnnotationSlice(set as any, get as any, api as any),
+          ...createFabricSlice(set as any, get as any, api as any),
           /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
 
           // Override initial state from base template
@@ -658,9 +662,10 @@ export const createTopologyStore = () => {
           ...state,
           expandedEdges: Array.from(state.expandedEdges),
           selectedSimNodeNames: Array.from(state.selectedSimNodeNames),
+          fabricYaml: state.fabricYaml,
         }),
         merge: (persistedState, currentState) => {
-          const persisted = persistedState as Partial<UIState> & { expandedEdges?: string[]; selectedSimNodeNames?: string[]; annotations?: UIAnnotation[] };
+          const persisted = persistedState as Partial<UIState> & { expandedEdges?: string[]; selectedSimNodeNames?: string[]; annotations?: UIAnnotation[]; fabricYaml?: string };
           const nodes = persisted.nodes?.map(node => ({ ...node, data: { ...node.data, isNew: false } })) || currentState.nodes;
 
           // Migrate edges: infer edgeType from lagGroups/esiLeaves
@@ -687,6 +692,7 @@ export const createTopologyStore = () => {
             selectedSimNodeNames,
             selectedAnnotationIds: new Set<string>(),
             annotations: persisted.annotations || currentState.annotations || [],
+            fabricYaml: persisted.fabricYaml || currentState.fabricYaml || '',
             nodeTemplates: persisted.nodeTemplates?.length ? persisted.nodeTemplates : (baseTemplate.nodeTemplates || []),
             linkTemplates: persisted.linkTemplates?.length ? persisted.linkTemplates : (baseTemplate.linkTemplates || []),
             simulation: {
