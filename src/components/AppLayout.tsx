@@ -336,6 +336,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 <MenuItem value="replaceAll">replaceAll</MenuItem>
                 <MenuItem value="delete">delete</MenuItem>
                 <MenuItem value="deleteAll">deleteAll</MenuItem>
+                <MenuItem value="reconcile">reconcile</MenuItem>
               </Select>
             </FormControl>
           </DialogContent>
